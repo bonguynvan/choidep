@@ -92,6 +92,8 @@ test('a full match: phones join and steer, the big screen gets frames, slippers 
   await sleep(300);
   assert.ok(pa.y > y + 20, 'the joystick moves the player');
   assert.equal(phoneFrames, 0, 'phones never get the 20 Hz position stream');
+  const view = await next(phoneA, 'view');
+  assert.ok(view.p.some(([id]) => id === a.playerId), 'but they see the arena around themselves');
 });
 
 test('the OBS view watches without being a host', async () => {
@@ -136,6 +138,26 @@ test('maintenance blocks new rooms; the operator API reports matches', async () 
   assert.equal((await fetch(`${base}/api/rooms`, { method: 'POST', headers: { Origin: base } })).status, 503);
   await ops('/settings', { method: 'POST', body: JSON.stringify({ maintenance: false }) });
   assert.equal((await fetch(`${base}/api/rooms`, { method: 'POST', headers: { Origin: base } })).status, 201);
+});
+
+test('past the whole-server player cap, newcomers are told to come back later', async () => {
+  const small = await startServer({ port: 0, maxPlayersTotal: 1, roomLimits: { maxRoomsPerIp: 10 } });
+  const smallBase = `http://127.0.0.1:${small.port}`;
+  try {
+    const { code } = await (await fetch(`${smallBase}/api/rooms`, { method: 'POST', headers: { Origin: smallBase } })).json();
+    const join = async (name) => {
+      const s = connect(smallBase, { transports: ['websocket'], forceNew: true, query: { room: code } });
+      sockets.push(s);
+      await new Promise((r) => s.on('connect', r));
+      return s.timeout(2000).emitWithAck('player:join', { name, animal: 'duck' });
+    };
+    assert.ok((await join('An')).ok);
+    const full = await join('Bình');
+    assert.equal(full.busy, true);
+    assert.match(full.error, /đông/);
+  } finally {
+    await small.close();
+  }
 });
 
 test('a joystick flood is capped, never crashes the room', async () => {

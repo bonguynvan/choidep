@@ -1,7 +1,7 @@
 // The big screen: the arena from above, characters in team colours, slippers flying.
 // The server sends positions 20 times a second; this view blends between them for smooth 60 fps.
 import { ANIMALS, findAnimal } from '/shared/catalog.js';
-import { ARENA, FLAGS, PICKUPS, TEAMS } from '/shared/rules.js';
+import { ARENA, FLAGS, PICKUPS, RULES, TEAMS } from '/shared/rules.js';
 import { EMOJI_FONT, FONT, INK } from './draw.js';
 import { SpriteCache } from './spriteCache.js';
 
@@ -10,13 +10,23 @@ const CHAR_SIZE = 72; // world units (the hitbox is 48 wide)
 const FX_MS = 900;
 const GO_MS = 900;
 const PICKUP_ICON = Object.fromEntries(PICKUPS.map((p) => [p.id, p.icon]));
+// Follow camera (phones): how much of the field is visible, in world units.
+const FOLLOW_WIDTH_LANDSCAPE = 1100;
+const FOLLOW_WIDTH_PORTRAIT = 620;
+const CAMERA_EASE = 8; // 1/s
 
 const lerp = (a, b, k) => a + (b - a) * k;
 
 export class ArenaView {
-  /** @param {HTMLCanvasElement} canvas */
-  constructor(canvas) {
+  /**
+   * @param {HTMLCanvasElement} canvas
+   * @param {{ follow?: () => string | null }} [opts] follow: a player id to keep in the middle (the phone view);
+   *   without it the whole field is fitted on screen (big screen / OBS).
+   */
+  constructor(canvas, { follow = null } = {}) {
     this.canvas = canvas;
+    this.follow = follow;
+    this.camera = null;
     this.ctx = canvas.getContext('2d');
     this.sprites = new SpriteCache();
     this.glyphs = new Map();
@@ -120,15 +130,16 @@ export class ArenaView {
   }
 
   #floor(ctx, teams) {
+    const F = this.#field();
     ctx.fillStyle = '#7cc35a';
-    ctx.fillRect(0, 0, ARENA.width, ARENA.height);
+    ctx.fillRect(0, 0, F.width, F.height);
     ctx.fillStyle = 'rgba(255, 255, 255, 0.07)';
-    for (let x = 0; x < ARENA.width; x += 200) ctx.fillRect(x, 0, 100, ARENA.height); // mowed stripes
-    const strip = ARENA.width / teams;
+    for (let x = 0; x < F.width; x += 200) ctx.fillRect(x, 0, 100, F.height); // mowed stripes
+    const strip = F.width / teams;
     for (let t = 0; t < teams; t += 1) {
       ctx.fillStyle = TEAMS[t].color;
       ctx.globalAlpha = 0.13;
-      ctx.fillRect(t * strip, 0, strip, ARENA.height);
+      ctx.fillRect(t * strip, 0, strip, F.height);
       ctx.globalAlpha = 1;
       if (t > 0) {
         ctx.strokeStyle = 'rgba(255, 255, 255, 0.75)';
@@ -136,7 +147,7 @@ export class ArenaView {
         ctx.setLineDash([24, 18]);
         ctx.beginPath();
         ctx.moveTo(t * strip, 0);
-        ctx.lineTo(t * strip, ARENA.height);
+        ctx.lineTo(t * strip, F.height);
         ctx.stroke();
         ctx.setLineDash([]);
       }
@@ -144,11 +155,11 @@ export class ArenaView {
     ctx.strokeStyle = 'rgba(255, 255, 255, 0.6)';
     ctx.lineWidth = 6;
     ctx.beginPath();
-    ctx.arc(ARENA.width / 2, ARENA.height / 2, 110, 0, Math.PI * 2);
+    ctx.arc(F.width / 2, F.height / 2, 110, 0, Math.PI * 2);
     ctx.stroke();
     ctx.strokeStyle = INK;
     ctx.lineWidth = 10;
-    ctx.strokeRect(5, 5, ARENA.width - 10, ARENA.height - 10);
+    ctx.strokeRect(5, 5, F.width - 10, F.height - 10);
   }
 
   #players(ctx, pair, now, dt) {
@@ -187,6 +198,7 @@ export class ArenaView {
         flip: Boolean(flags & FLAGS.left),
       });
       ctx.globalAlpha = 1;
+      if (this.follow && id === this.follow()) this.#meMarker(ctx, x, y, team.color, now);
       if (stunned) {
         const star = this.#glyph('⭐', 18);
         for (let i = 0; i < 3; i += 1) {
@@ -196,6 +208,42 @@ export class ArenaView {
       }
     }
     if (this.sprites.warmList) this.sprites.warm(this.sprites.warmList, { size: CHAR_SIZE, scale: ctx.getTransform().a });
+  }
+
+  /** This match's field size (it grows with the crowd); the default before any match. */
+  #field() {
+    return this.state?.field ?? ARENA;
+  }
+
+  /** "BẠN" and a bobbing arrow over the phone owner's character. */
+  #meMarker(ctx, x, y, color, now) {
+    const top = y - CHAR_SIZE * 1.45 + Math.sin(now / 180) * 5;
+    ctx.fillStyle = color;
+    ctx.strokeStyle = INK;
+    ctx.lineWidth = 4;
+    ctx.beginPath();
+    ctx.moveTo(x - 16, top);
+    ctx.lineTo(x + 16, top);
+    ctx.lineTo(x, top + 20);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+    ctx.font = `800 24px ${FONT}`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'bottom';
+    ctx.lineWidth = 6;
+    ctx.strokeText('BẠN', x, top - 4);
+    ctx.fillStyle = '#fff';
+    ctx.fillText('BẠN', x, top - 4);
+  }
+
+  /** Where my own player is right now (interpolated), for the follow camera. */
+  #myPosition(pair) {
+    const id = this.follow?.();
+    const b = id && pair?.b.p.get(id);
+    if (!b) return null;
+    const a = pair.a.p.get(id) ?? b;
+    return { x: lerp(a[0], b[0], pair.k), y: lerp(a[1], b[1], pair.k) };
   }
 
   #projectiles(ctx, pair, now) {
@@ -283,12 +331,29 @@ export class ArenaView {
     const ctx = this.ctx;
     ctx.clearRect(0, 0, w, h);
     if (w === 0) return;
-    const scale = Math.min(w / ARENA.width, h / ARENA.height);
-    ctx.save();
-    ctx.translate((w - ARENA.width * scale) / 2, (h - ARENA.height * scale) / 2);
-    ctx.scale(scale, scale);
-    this.#floor(ctx, this.state?.teams ?? 2);
     const pair = this.offset === null ? null : this.#pair(now + this.offset - DELAY_MS);
+    ctx.save();
+    if (this.follow) {
+      // Phone: a close-up that follows my player; beyond the field edge is plain background.
+      const visible = w >= h ? FOLLOW_WIDTH_LANDSCAPE : FOLLOW_WIDTH_PORTRAIT;
+      const scale = Math.max(w / visible, h / (RULES.viewHalfHeight * 2));
+      const me = this.#myPosition(pair) ?? this.camera ?? { x: this.#field().width / 2, y: this.#field().height / 2 };
+      const target = { x: me.x, y: me.y - CHAR_SIZE * 0.5 };
+      this.camera = this.camera ? {
+        x: lerp(this.camera.x, target.x, Math.min(1, dt * CAMERA_EASE)),
+        y: lerp(this.camera.y, target.y, Math.min(1, dt * CAMERA_EASE)),
+      } : target;
+      ctx.fillStyle = '#e9dcc0';
+      ctx.fillRect(0, 0, w, h);
+      ctx.translate(w / 2 - this.camera.x * scale, h / 2 - this.camera.y * scale);
+      ctx.scale(scale, scale);
+    } else {
+      const F = this.#field();
+      const scale = Math.min(w / F.width, h / F.height);
+      ctx.translate((w - F.width * scale) / 2, (h - F.height * scale) / 2);
+      ctx.scale(scale, scale);
+    }
+    this.#floor(ctx, this.state?.teams ?? 2);
     if (pair) {
       this.#pickups(ctx, pair, now);
       this.#players(ctx, pair, now, dt);

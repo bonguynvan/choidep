@@ -7,7 +7,9 @@ Miễn phí, không cần tài khoản, chơi được cả trăm người một
 ## Cách chơi
 - **Host** tạo phòng trên máy tính nối TV / máy chiếu / OBS. Màn hình hiện mã QR và các đội.
 - **Người chơi** quét QR, nhập tên, chọn nhân vật (dùng chung dàn nhân vật với [Đua Vịt](https://github.com/bonguynvan/duavit)).
-- Bên trái điện thoại là **cần điều hướng**, bên phải là nút **NÉM**: tự ngắm đối thủ gần nhất phía trước.
+- Điện thoại hiện **đấu trường quanh bạn** (camera theo nhân vật, có mũi tên BẠN). Phía dưới: **cần điều hướng**
+  (chạm ở đâu cần hiện ở đó) và nút **NÉM** tự ngắm đối thủ gần nhất phía trước.
+- Vào bằng **máy tính**: chạy bằng **W A S D / phím mũi tên**, ném bằng **Space**.
 - Trúng dép thì **choáng** 1,8 giây (nằm bẹp, sao bay), đứng dậy được miễn nhiễm 1 giây. Không ai bị loại.
 - Đồ nhặt trên sân: 🩴 dép tổ ong (ném 3 chiếc), 🎈 bóng nước (nổ cả vùng), ⛑️ mũ bảo hiểm (đỡ 1 lần), 🧋 trà sữa (chạy nhanh).
 - Cuối trận: đội thắng, **Thánh ném** (trúng nhiều nhất) và **Bao cát** (bị trúng nhiều nhất).
@@ -28,6 +30,19 @@ Trên máy tính, tay cầm điều khiển được bằng **WASD / mũi tên**
 - **Màn hình lớn / OBS** nhận vị trí 20 lần/giây và nội suy cho mượt (`public/js/arenaView.js`).
   **Điện thoại** chỉ gửi hướng chạy + nút ném, chỉ nhận trạng thái của chính mình 4 lần/giây.
 - Nhân vật vẽ bằng canvas, cache thành sprite (`public/js/spriteCache.js`), chép từ Đua Vịt.
+
+## Chịu tải
+Đo bằng `node tools/loadtest.js [người/phòng] [số phòng] [giây]` (điện thoại giả chạy 15 lệnh/giây, ném ~1 lần/giây):
+
+| Kịch bản | CPU server | Phản hồi ném p99 | RAM | Băng thông server |
+|---|---|---|---|---|
+| 1 phòng × 150 người | ~14% một nhân | 9 ms | ~110 MB | ~10 Mbit/s |
+| 4 phòng × 150 = 600 người | ~26% một nhân | 18 ms | ~210 MB | ~41 Mbit/s |
+
+- Giới hạn thật là **băng thông** (~70 kbit/s mỗi điện thoại), không phải CPU.
+- Sân **tự nới rộng theo số người** (`fieldFor`), mỗi điện thoại chỉ nhận những gì ở gần nó.
+- Mỗi phòng tối đa 150 người; cả server tối đa `MAX_PLAYERS_TOTAL` (mặc định 1200), quá thì người mới được báo
+  "Máy chủ đang rất đông" thay vì làm cả server lag.
 
 ## Triển khai (VPS dùng chung Caddy với các game Peti khác)
 ```bash

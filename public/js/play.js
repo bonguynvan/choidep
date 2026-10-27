@@ -3,6 +3,7 @@ import { ANIMALS, findAnimal } from '/shared/catalog.js';
 import { PICKUPS, TEAMS } from '/shared/rules.js';
 import { request, roomStorage, socket, toast } from './net.js';
 import { paintAnimalCard } from './draw.js';
+import { ArenaView } from './arenaView.js';
 
 const $ = (id) => document.getElementById(id);
 const INPUT_EVERY_MS = 60;
@@ -12,6 +13,10 @@ const buzz = (pattern) => navigator.vibrate?.(pattern);
 
 let state = null;
 let myId = null;
+// The phone shows the arena around its own player (the server sends only what is nearby).
+const view = new ArenaView($('view'), { follow: () => myId });
+// A real keyboard and mouse: show the key hint instead of the touch joystick.
+if (matchMedia('(hover: hover) and (pointer: fine)').matches) $('pad').classList.add('desktop');
 let characterIndex = Math.floor(Math.random() * ANIMALS.length);
 
 // ---------- join ----------
@@ -93,7 +98,11 @@ function render() {
 
 socket.on('state', (next) => {
   state = next;
+  view.setState(next);
   render();
+});
+socket.on('view', (frame) => {
+  if (frame) view.pushFrame(frame);
 });
 socket.on('me', (me) => {
   if (!me) return;
@@ -103,6 +112,7 @@ socket.on('me', (me) => {
   $('me-stats').textContent = `🎯 ${me.hits} · 🥴 ${me.hitsTaken}`;
 });
 socket.on('me:fx', (events) => {
+  view.addEffects(events);
   for (const e of events) {
     if (e.type === 'hit' && e.to === myId) buzz([140, 60, 140]);
     else if (e.type === 'hit' && e.from === myId) { buzz(40); toast('🎯 Trúng rồi!'); }

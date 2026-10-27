@@ -20,6 +20,7 @@ const server = await startServer({
   publicUrl: env.PUBLIC_URL ?? '',
   trustProxy: env.TRUST_PROXY === '1', // set when running behind Caddy/nginx
   maxSocketsPerIp: int(env.MAX_SOCKETS_PER_IP, 10),
+  maxPlayersTotal: int(env.MAX_PLAYERS_TOTAL, 1200),
   createPerMinute: int(env.ROOMS_CREATE_PER_MINUTE, 5),
   ga4Id: (env.GA4_ID ?? '').trim(),
   opsToken: (env.OPS_TOKEN ?? '').trim(),

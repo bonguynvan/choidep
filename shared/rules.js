@@ -1,6 +1,15 @@
 // Game rules shared by the server (simulation) and the browsers (drawing, controller hints).
 
-export const ARENA = Object.freeze({ width: 1600, height: 900 });
+export const ARENA = Object.freeze({ width: 1600, height: 900 }); // the field for up to ~30 players
+
+/**
+ * The field grows with the crowd (same 16:9 shape): room to run, and each phone's nearby-only view stays
+ * small, so a streamer's 150 fans don't flood the network. Area per player stays about the same.
+ */
+export function fieldFor(players) {
+  const k = Math.min(2.25, Math.max(1, Math.sqrt(players / 30)));
+  return { width: Math.round(ARENA.width * k), height: Math.round(ARENA.height * k) };
+}
 
 export const TEAMS = Object.freeze([
   { id: 0, name: 'Đỏ', color: '#e63946' },
@@ -38,6 +47,9 @@ export const RULES = Object.freeze({
   splashRadius: 120,
   tripleSpread: 0.3, // radians between the three slippers
   lobbyGraceMs: 10 * 60 * 1000, // a phone that drops in the lobby keeps its place this long
+  // A phone shows the arena around its own player: it only gets what lies within this box (world units).
+  viewHalfWidth: 600,
+  viewHalfHeight: 560,
 });
 
 export const PICKUPS = Object.freeze([

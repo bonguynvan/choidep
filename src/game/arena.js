@@ -2,7 +2,7 @@
 // phones only send a direction and "throw", the big screen draws what step()/frame() report.
 import { randomBytes } from 'node:crypto';
 import { ANIMALS, FACE_COLORS, findAnimal, initialsOf } from '../../shared/catalog.js';
-import { ARENA, FLAGS, PHASES, PICKUPS, RULES, TEAMS } from '../../shared/rules.js';
+import { ARENA, FLAGS, PHASES, PICKUPS, RULES, TEAMS, fieldFor } from '../../shared/rules.js';
 import { sanitizeText } from '../text.js';
 
 const BOT_NAMES = ['Bông', 'Mít', 'Su Su', 'Bắp', 'Tôm', 'Kem', 'Na', 'Cốm', 'Xoài', 'Mochi', 'Gấu', 'Tí', 'Tèo', 'Bin', 'Bơ'];
@@ -15,9 +15,9 @@ const dist2 = (a, b) => (a.x - b.x) ** 2 + (a.y - b.y) ** 2;
 export const sanitizeName = (raw) => sanitizeText(raw, { maxLength: RULES.nameMaxLength, requireLetter: true });
 
 /** The strip of the field a team starts in: vertical strips from left to right. */
-function teamZone(team, teams) {
-  const w = ARENA.width / teams;
-  return { x0: team * w + R * 2, x1: (team + 1) * w - R * 2, y0: RULES.topMargin + R, y1: ARENA.height - R * 2 };
+function teamZone(team, teams, field) {
+  const w = field.width / teams;
+  return { x0: team * w + R * 2, x1: (team + 1) * w - R * 2, y0: RULES.topMargin + R, y1: field.height - R * 2 };
 }
 
 export class Arena {
@@ -26,6 +26,7 @@ export class Arena {
     this.rng = rng;
     this.phase = PHASES.LOBBY;
     this.mapId = 'arena';
+    this.field = { ...ARENA }; // set for each match by the number of players (fieldFor)
     this.title = '';
     this.teams = 2;
     this.durationSec = RULES.defaultDurationSec;
@@ -54,7 +55,7 @@ export class Arena {
   }
 
   #spawn(player) {
-    const zone = teamZone(player.team, this.teams);
+    const zone = teamZone(player.team, this.teams, this.field);
     player.x = zone.x0 + this.rng() * (zone.x1 - zone.x0);
     player.y = zone.y0 + this.rng() * (zone.y1 - zone.y0);
     player.fx = player.team < this.teams / 2 ? 1 : -1; // face the middle of the field
@@ -203,6 +204,7 @@ export class Arena {
   start(now) {
     if (!this.#inLobby()) return { error: 'Trận đang diễn ra' };
     if (this.players.size < 2) return { error: 'Cần ít nhất 2 người (có thể thêm bot)' };
+    this.field = fieldFor(this.players.size);
     this.phase = PHASES.COUNTDOWN;
     this.startsAt = now + RULES.countdownMs;
     this.endsAt = this.startsAt + this.durationSec * 1000;
@@ -361,8 +363,8 @@ export class Arena {
       }
       if (now < p.stunnedUntil) continue;
       const speed = RULES.speed * (now < p.teaUntil ? RULES.teaBoost : 1) * dt;
-      p.x = clamp(p.x + p.dx * speed, R, ARENA.width - R);
-      p.y = clamp(p.y + p.dy * speed, RULES.topMargin, ARENA.height - R);
+      p.x = clamp(p.x + p.dx * speed, R, this.field.width - R);
+      p.y = clamp(p.y + p.dy * speed, RULES.topMargin, this.field.height - R);
       // Pick-ups lying around.
       const found = this.pickups.findIndex((k) => dist2(p, k) <= (RULES.pickupRadius + R) ** 2);
       if (found >= 0) {
@@ -378,7 +380,7 @@ export class Arena {
     for (const s of this.projectiles) {
       s.x += s.vx * dt;
       s.y += s.vy * dt;
-      const out = s.x < 0 || s.x > ARENA.width || s.y < 0 || s.y > ARENA.height || now - s.bornAt > RULES.projectileTtlMs;
+      const out = s.x < 0 || s.x > this.field.width || s.y < 0 || s.y > this.field.height || now - s.bornAt > RULES.projectileTtlMs;
       let target = null;
       if (!out) {
         for (const other of this.players.values()) {
@@ -401,9 +403,11 @@ export class Arena {
 
     if (now >= this.nextPickupAt) {
       this.nextPickupAt = now + RULES.pickupEveryMs;
-      if (this.pickups.length < RULES.maxPickups) {
+      // A bigger field holds more pick-ups (same density).
+      const max = Math.round(RULES.maxPickups * (this.field.width / ARENA.width) ** 2);
+      if (this.pickups.length < max) {
         const type = PICKUPS[Math.floor(this.rng() * PICKUPS.length)].id;
-        this.pickups.push({ id: this.#newId('k'), type, x: 120 + this.rng() * (ARENA.width - 240), y: 100 + this.rng() * (ARENA.height - 200) });
+        this.pickups.push({ id: this.#newId('k'), type, x: 120 + this.rng() * (this.field.width - 240), y: RULES.topMargin + this.rng() * (this.field.height - RULES.topMargin - 100) });
       }
     }
     return events;
@@ -436,6 +440,7 @@ export class Arena {
       phase: this.phase,
       title: this.title,
       teams: this.teams,
+      field: this.field,
       durationSec: this.durationSec,
       startsAt: this.startsAt,
       endsAt: this.endsAt,
@@ -450,9 +455,10 @@ export class Arena {
   }
 
   /** Positions for the big screen, 20 times a second: compact arrays, integers only. */
-  frame(now) {
+  frame(now, near = () => true) {
     const p = [];
     for (const pl of this.players.values()) {
+      if (!near(pl)) continue;
       let flags = 0;
       if (now < pl.stunnedUntil) flags |= FLAGS.stunned;
       else if (now < pl.shieldUntil) flags |= FLAGS.shielded;
@@ -467,10 +473,18 @@ export class Arena {
     return {
       t: now,
       p,
-      s: this.projectiles.map((s) => [s.id, Math.round(s.x), Math.round(s.y), s.kind === 'balloon' ? 1 : 0, s.team]),
-      k: this.pickups.map((k) => [k.id, Math.round(k.x), Math.round(k.y), k.type]),
+      s: this.projectiles.filter(near).map((s) => [s.id, Math.round(s.x), Math.round(s.y), s.kind === 'balloon' ? 1 : 0, s.team]),
+      k: this.pickups.filter(near).map((k) => [k.id, Math.round(k.x), Math.round(k.y), k.type]),
       sc: this.scores.slice(0, this.teams),
     };
+  }
+
+  /** A phone's own view: the same frame, cut down to what is around its player (much less traffic). */
+  viewFor(id, now) {
+    const me = this.players.get(id);
+    if (!me) return null;
+    const near = (o) => Math.abs(o.x - me.x) <= RULES.viewHalfWidth && Math.abs(o.y - me.y) <= RULES.viewHalfHeight;
+    return this.frame(now, near);
   }
 
   /** What one phone needs about its own player (cooldown, stun, power-up). */

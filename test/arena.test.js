@@ -2,7 +2,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { Arena } from '../src/game/arena.js';
-import { ARENA, FLAGS, PHASES, RULES } from '../shared/rules.js';
+import { ARENA, FLAGS, PHASES, RULES, fieldFor } from '../shared/rules.js';
 
 /** Deterministic rng for repeatable tests. */
 function seeded(seed = 7) {
@@ -198,6 +198,32 @@ test('results name the winning team, the best thrower and the favourite target',
   assert.equal(arena.results.thrower.name, 'An');
   assert.equal(arena.results.sandbag.name, 'Bình');
   assert.equal(arena.results.draw, false);
+});
+
+test('the field grows with the crowd, up to a cap, same shape', () => {
+  assert.deepEqual(fieldFor(2), ARENA);
+  assert.deepEqual(fieldFor(30), ARENA);
+  const big = fieldFor(150);
+  assert.ok(big.width > ARENA.width * 2 && big.width <= ARENA.width * 2.25);
+  assert.equal(Math.round((big.width / big.height) * 100), Math.round((ARENA.width / ARENA.height) * 100));
+  assert.deepEqual(fieldFor(1000), fieldFor(500), 'capped');
+  const arena = new Arena({ rng: seeded() });
+  arena.addBots(RULES.maxBots);
+  arena.start(0);
+  assert.deepEqual(arena.snapshot(0).field, fieldFor(RULES.maxBots));
+  assert.ok([...arena.players.values()].some((p) => p.x > ARENA.width), 'players spread over the bigger field');
+});
+
+test('a phone only receives what is around its player', () => {
+  const { arena, players: [a, b], now } = playing();
+  Object.assign(a, { x: 200, y: 450 });
+  Object.assign(b, { x: 1500, y: 450 });
+  arena.pickups.push({ id: 'k1', type: 'tea', x: 300, y: 500 }, { id: 'k2', type: 'tea', x: 1400, y: 500 });
+  const view = arena.viewFor(a.id, now);
+  assert.deepEqual(view.p.map(([id]) => id), [a.id]);
+  assert.deepEqual(view.k.map(([id]) => id), ['k1']);
+  assert.equal(arena.viewFor('nobody', now), null);
+  assert.equal(arena.frame(now).p.length, 2, 'the big screen still sees everyone');
 });
 
 test('the frame is compact and the controller state is per player', () => {

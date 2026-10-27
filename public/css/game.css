@@ -78,10 +78,26 @@
 .picker-name { text-align: center; font: 800 1.2rem var(--font-display); margin: 0; }
 .team-banner { color: #fff; border: var(--border); border-radius: 14px; padding: 12px; text-align: center; font: 800 1.4rem var(--font-display); box-shadow: var(--shadow-sm); }
 
-.pad { position: fixed; inset: 0; display: grid; grid-template-rows: auto 1fr; touch-action: none; user-select: none; -webkit-user-select: none; background: var(--cream); }
+.pad { position: fixed; inset: 0; display: grid; grid-template-rows: auto 1fr auto; touch-action: none; user-select: none; -webkit-user-select: none; background: var(--cream); }
+.pad-view { position: relative; min-height: 0; }
+.pad-view canvas { width: 100%; height: 100%; display: block; }
+.keys-hint { display: none; position: absolute; left: 50%; bottom: 10px; transform: translateX(-50%); margin: 0; padding: 6px 14px; border: var(--border); border-radius: 999px; background: var(--paper); font-weight: 700; white-space: nowrap; }
 .pad-bar { display: flex; align-items: center; gap: 10px; padding: 8px 12px; color: #fff; font: 800 1.1rem var(--font-display); border-bottom: var(--border); }
 .pad-bar .spacer { flex: 1; }
-.pad-area { display: grid; grid-template-columns: 1.2fr 1fr; min-height: 0; }
+.pad-area { display: grid; grid-template-columns: 1.2fr 1fr; height: min(40vh, 300px); border-top: var(--border); background: var(--paper); }
+/* Landscape phones: the arena fills the screen, the controls float over its lower corners. */
+@media (orientation: landscape) and (pointer: coarse) {
+  .pad { grid-template-rows: auto 1fr; }
+  .pad-area { position: fixed; left: 0; right: 0; bottom: 0; height: 55vh; border: 0; background: none; pointer-events: none; }
+  .stick-zone, .throw { pointer-events: auto; }
+  .stick-zone { border: 0; }
+  .throw { opacity: 0.85; }
+}
+/* Laptops / desktops: keyboard instead of the touch joystick. */
+.desktop .stick-zone { display: none; }
+.desktop .pad-area { grid-template-columns: 1fr; height: auto; padding: 10px; }
+.desktop .throw { width: 120px; font-size: 1.4rem; }
+.desktop .keys-hint { display: block; }
 .stick-zone { position: relative; border-right: 3px dashed rgba(29, 26, 47, 0.2); touch-action: none; }
 .stick-zone .hint { position: absolute; inset: auto 0 12px; text-align: center; color: var(--ink-soft); font-weight: 700; }
 .stick { position: absolute; width: 130px; height: 130px; margin: -65px 0 0 -65px; border-radius: 50%; border: 4px solid var(--ink); background: rgba(255, 255, 255, 0.6); pointer-events: none; }
@@ -95,5 +111,5 @@
 .throw:active { transform: translate(4px, 4px); box-shadow: 2px 2px 0 var(--ink); }
 .throw small { display: block; font-size: 1.6rem; line-height: 1; }
 .pad.stunned::after { content: 'ÚI! Đang choáng…'; position: fixed; inset: 0; display: grid; place-items: center; background: rgba(230, 57, 70, 0.35); color: #fff; font: 800 2rem var(--font-display); -webkit-text-stroke: 1px var(--ink); pointer-events: none; }
-.pad .waiting { position: fixed; inset: 48px 0 0; display: grid; place-content: center; gap: 8px; text-align: center; background: rgba(255, 246, 229, 0.92); font: 800 1.5rem var(--font-display); padding: 16px; }
+.pad .waiting { position: absolute; inset: 0; display: grid; place-content: center; gap: 8px; text-align: center; background: rgba(255, 246, 229, 0.92); font: 800 1.5rem var(--font-display); padding: 16px; }
 .pad .waiting small { font: 700 1rem var(--font-body); color: var(--ink-soft); }
