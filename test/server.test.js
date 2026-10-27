@@ -79,13 +79,13 @@ test('a full match: phones join and steer, the big screen gets frames, slippers 
   const pa = entry.room.players.get(a.playerId);
   const pb = entry.room.players.get(b.playerId);
   Object.assign(pa, { x: 300, y: 450, fx: 1, fy: 0 });
-  Object.assign(pb, { x: 650, y: 450 });
+  Object.assign(pb, { x: 850, y: 450 });
   const ouch = next(phoneB, 'me:fx', (fx) => fx.some((e) => e.type === 'hit'));
   assert.ok((await ask(phoneA, 'throw')).ok);
   await ouch;
-  assert.equal(entry.room.scores[pa.team], 1);
+  assert.equal(pb.lives, RULES.lives - 1);
   const me = await next(phoneB, 'me');
-  assert.ok(me.stunnedMs > 0, 'the victim\'s phone knows it is down');
+  assert.equal(me.lives, RULES.lives - 1, 'the victim\'s phone knows a life is gone');
 
   phoneA.emit('input', { dx: 0, dy: 1 });
   const y = pa.y;

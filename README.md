@@ -1,7 +1,7 @@
 # 🩴 Chọi Dép Peti
 
 Đại chiến ném dép theo đội cho cả phòng: **màn hình lớn là đấu trường, điện thoại là tay cầm**.
-Quét QR, nhập tên, tự được chia đội, rồi chạy và ném dép loạn xạ. Đội trúng nhiều nhất sau 3 phút thắng.
+Quét QR, nhập tên, tự được chia đội, rồi chạy và ném dép loạn xạ. Mỗi người 3 mạng, đội cuối cùng còn người đứng thắng.
 Miễn phí, không cần tài khoản, chơi được cả trăm người một phòng. Chơi tại **https://choidep.peti.vn**.
 
 ## Cách chơi
@@ -10,9 +10,16 @@ Miễn phí, không cần tài khoản, chơi được cả trăm người một
 - Điện thoại hiện **đấu trường quanh bạn** (camera theo nhân vật, có mũi tên BẠN). Phía dưới: **cần điều hướng**
   (chạm ở đâu cần hiện ở đó) và nút **NÉM** tự ngắm đối thủ gần nhất phía trước.
 - Vào bằng **máy tính**: chạy bằng **W A S D / phím mũi tên**, ném bằng **Space**.
-- Trúng dép thì **choáng** 1,8 giây (nằm bẹp, sao bay), đứng dậy được miễn nhiễm 1 giây. Không ai bị loại.
+- **Mỗi người 3 mạng** (3 chấm đỏ dưới chân). Trúng dép mất 1 mạng, khựng 0,6 giây, rồi miễn nhiễm một chút.
+  Hết mạng thì **bị loại**: điện thoại chuyển sang xem đồng đội còn đứng.
+- **Không ném trúng đồng đội**: dép đội Đỏ màu đỏ, đội Xanh màu xanh…, bay xuyên qua người cùng đội.
+- **Mỗi đội chỉ chạy trong khu của mình**, dép thì bay đâu cũng được. Sân chia đối xứng quanh tâm: 2 đội chia đôi trái/phải,
+  3 đội chia hình chữ Y (trên-trái, trên-phải, dưới), 4 đội chia 4 góc phần tư. Khu nào cũng rộng bằng nhau.
+- Từ 3 đội trở lên: đội nào bị loại hết thì khu của đội đó thành **khu trống**, đội bên cạnh nào chạy vào trước thì **chiếm** luôn.
+- **Thắng**: đội cuối cùng còn người. Hết giờ thì đội còn nhiều người hơn thắng, bằng nhau thì xét tổng số mạng còn lại.
+- Vào phòng giữa trận thì chờ trận sau.
 - Đồ nhặt trên sân: 🩴 dép tổ ong (ném 3 chiếc), 🎈 bóng nước (nổ cả vùng), ⛑️ mũ bảo hiểm (đỡ 1 lần), 🧋 trà sữa (chạy nhanh).
-- Cuối trận: đội thắng, **Thánh ném** (trúng nhiều nhất) và **Bao cát** (bị trúng nhiều nhất).
+- Cuối trận: đội thắng, **Thánh ném** (hạ nhiều người nhất) và **Người sống sót** (còn đứng, nhiều mạng nhất).
 - Host chọn 2–4 đội, 1–5 phút, xáo đội, thêm bot cho đông vui. Có trang OBS riêng (`/r/MÃ/live`) cho livestream.
 
 ## Chạy thử trên máy

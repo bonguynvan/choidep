@@ -18,10 +18,15 @@ npm test        # node:test, test/*.test.js
   `painters*.js`, `draw.js`, `spriteCache.js`). Keep in sync when duavit adds characters.
 - `src/game/arena.js` — one room's match: lobby → countdown → playing → finished. Server-authoritative simulation
   (`step(now, dt)` at 20 Hz): movement, auto-aim (`#aim`: nearest hittable enemy inside the cone ahead, slight lead),
-  projectiles, stun + shield, pick-ups, bots (`#botThink`). `frame()` = compact positions for big screens,
+  projectiles, lives (`RULES.lives`; a hit = flinch + short shield, 0 lives = out and gone from frames), team zones
+  (`zones`, see `shared/zones.js`: halves / a Y / quarters meeting at the centre; a team runs only in its zones,
+  sliding along fences; a wiped-out team's zones are free and the first
+  team next door to step in takes them), last team standing wins (`#checkTeams`), late joiners wait (`late`),
+  pick-ups, bots (`#botThink`). Knocked-out phones follow a teammate (`viewFor` adds `f`).
+  `frame()` = compact positions for big screens,
   `controllerState(id)` = one phone's own state, `viewFor(id)` = the frame cut to the box around that player
   (`RULES.viewHalfWidth/Height`), `snapshot()` = roster/scores/field (sent when `entry.dirty`).
-  The field grows with the crowd at each start (`fieldFor(players)` in `shared/rules.js`, up to 2.25x).
+  The field grows with the crowd at each start (`fieldFor(players)` in `shared/rules.js`, up to 2.5x, growing from 20 players).
 - `src/sockets.js` — big screens join `${code}:screen` and get `frame` (volatile, 20 Hz) + `fx`; phones get `me`
   (4 Hz), `view` (nearby-only frame, 10 Hz) and `me:fx` (their own hits). Never send the full 20 Hz stream to
   phones: bandwidth (~70 kbit/s per phone) is the real limit, not CPU. Measure with `node tools/loadtest.js`

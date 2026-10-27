@@ -77,7 +77,7 @@ function render() {
   $('join-hint').hidden = !inMatch;
   $('end-match').hidden = !(state.phase === 'countdown' || state.phase === 'playing');
   if (!inMatch) renderLobby();
-  renderScores($('scores'), state.teams, state.scores);
+  renderScores($('scores'), state.teams, state.scores, { inMatch: state.phase !== 'lobby' });
   lastScores = state.scores.join();
   $('results').hidden = state.phase !== 'finished' || !state.results;
   if (state.phase === 'finished' && state.results) {

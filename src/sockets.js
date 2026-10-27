@@ -260,11 +260,16 @@ export function tickRooms(io, rooms, now, tick) {
       io.to(screenOf(entry.code)).volatile.emit('frame', arena.frame(now));
       if (events.length > 0) {
         io.to(screenOf(entry.code)).emit('fx', events);
+        // A team out / a zone taken: every phone shows the banner, and the timer may have been cut short.
+        const forAll = events.filter((e) => e.type === 'wipe' || e.type === 'capture');
+        if (forAll.length > 0) entry.dirty = true;
         const touched = new Set(events.flatMap((e) => [e.to, e.from]).filter(Boolean));
-        if (touched.size > 0) {
+        if (touched.size > 0 || forAll.length > 0) {
           socketsIn(io, entry.code).forEach((s) => {
-            if (!touched.has(s.data.playerId)) return;
-            s.emit('me:fx', events.filter((e) => e.to === s.data.playerId || e.from === s.data.playerId));
+            const id = s.data.playerId;
+            if (!id) return;
+            const mine = events.filter((e) => forAll.includes(e) || e.to === id || e.from === id);
+            if (mine.length > 0) s.emit('me:fx', mine);
           });
         }
       }

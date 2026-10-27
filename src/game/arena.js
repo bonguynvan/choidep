@@ -1,8 +1,11 @@
 // One room's match: lobby -> countdown -> playing -> finished. The server owns the simulation;
 // phones only send a direction and "throw", the big screen draws what step()/frame() report.
+// Rules: everyone has RULES.lives lives, a slipper from another team takes one, the last one puts you out.
+// Each team runs only in its own zone of the field (see shared/zones.js); the last team with someone standing wins.
 import { randomBytes } from 'node:crypto';
 import { ANIMALS, FACE_COLORS, findAnimal, initialsOf } from '../../shared/catalog.js';
-import { ARENA, FLAGS, PHASES, PICKUPS, RULES, TEAMS, fieldFor } from '../../shared/rules.js';
+import { ARENA, FLAGS, FREE_ZONE, PHASES, PICKUPS, RULES, TEAMS, fieldFor } from '../../shared/rules.js';
+import { canStand, freeNeighbours, freeZonesOf, initialZones, zoneAt, zoneGeometry } from '../../shared/zones.js';
 import { sanitizeText } from '../text.js';
 
 const BOT_NAMES = ['Bông', 'Mít', 'Su Su', 'Bắp', 'Tôm', 'Kem', 'Na', 'Cốm', 'Xoài', 'Mochi', 'Gấu', 'Tí', 'Tèo', 'Bin', 'Bơ'];
@@ -14,11 +17,7 @@ const dist2 = (a, b) => (a.x - b.x) ** 2 + (a.y - b.y) ** 2;
 
 export const sanitizeName = (raw) => sanitizeText(raw, { maxLength: RULES.nameMaxLength, requireLetter: true });
 
-/** The strip of the field a team starts in: vertical strips from left to right. */
-function teamZone(team, teams, field) {
-  const w = field.width / teams;
-  return { x0: team * w + R * 2, x1: (team + 1) * w - R * 2, y0: RULES.topMargin + R, y1: field.height - R * 2 };
-}
+const SAMPLE_TRIES = 60; // random points tried when looking for a spot inside a zone
 
 export class Arena {
   /** @param {{ rng?: () => number }} [opts] rng: inject a seeded one in tests */
@@ -33,7 +32,8 @@ export class Arena {
     this.players = new Map();
     this.projectiles = [];
     this.pickups = [];
-    this.scores = [0, 0, 0, 0];
+    this.zones = initialZones(this.teams); // owner team of each zone of the field, FREE_ZONE when nobody's
+    this.outTeams = new Set(); // teams wiped out this match, in the order they went
     this.startsAt = null;
     this.endsAt = null;
     this.results = null;
@@ -54,11 +54,25 @@ export class Arena {
     return counts.indexOf(Math.min(...counts));
   }
 
+  /** A random spot on the field (inside the edges) that passes `ok`, or null. */
+  #randomSpot(ok) {
+    const F = this.field;
+    for (let i = 0; i < SAMPLE_TRIES; i += 1) {
+      const x = R * 2 + this.rng() * (F.width - R * 4);
+      const y = RULES.topMargin + R + this.rng() * (F.height - RULES.topMargin - R * 3);
+      if (ok(x, y)) return { x, y };
+    }
+    return null;
+  }
+
+  /** Somewhere in the team's own zone, clear of the fences, facing the middle of the field. */
   #spawn(player) {
-    const zone = teamZone(player.team, this.teams, this.field);
-    player.x = zone.x0 + this.rng() * (zone.x1 - zone.x0);
-    player.y = zone.y0 + this.rng() * (zone.y1 - zone.y0);
-    player.fx = player.team < this.teams / 2 ? 1 : -1; // face the middle of the field
+    const own = initialZones(this.teams);
+    const spot = this.#randomSpot((x, y) => canStand(x, y, player.team, own, this.field, R * 2))
+      ?? zoneGeometry(this.teams, this.field).centres[player.team];
+    player.x = spot.x;
+    player.y = spot.y;
+    player.fx = player.x < this.field.width / 2 ? 1 : -1;
     player.fy = 0;
   }
 
@@ -77,9 +91,13 @@ export class Arena {
       x: 0, y: 0, fx: 1, fy: 0, dx: 0, dy: 0,
       stunnedUntil: 0, shieldUntil: 0, cooldownUntil: 0, teaUntil: 0,
       helmet: false, power: null,
-      hits: 0, hitsTaken: 0,
+      lives: RULES.lives, dead: false,
+      // Joined during a match: watches until the next one (it would be unfair to drop in fresh mid-fight).
+      late: this.phase === PHASES.COUNTDOWN || this.phase === PHASES.PLAYING,
+      hits: 0, kills: 0,
       ...extra,
     };
+    if (player.late) Object.assign(player, { lives: 0, dead: true });
     this.#spawn(player);
     this.players.set(player.id, player);
     return player;
@@ -163,6 +181,7 @@ export class Arena {
     if (!RULES.teamChoices.includes(n)) return { error: 'Số đội không hợp lệ' };
     if (!this.#inLobby()) return { error: 'Đang chơi, đổi sau nhé' };
     this.teams = n;
+    this.zones = initialZones(n);
     return this.shuffle();
   }
 
@@ -204,17 +223,24 @@ export class Arena {
   start(now) {
     if (!this.#inLobby()) return { error: 'Trận đang diễn ra' };
     if (this.players.size < 2) return { error: 'Cần ít nhất 2 người (có thể thêm bot)' };
+    const manned = new Set([...this.players.values()].map((p) => p.team));
+    if (manned.size < 2) return { error: 'Cần ít nhất 2 đội có người (bấm Xáo đội)' };
     this.field = fieldFor(this.players.size);
     this.phase = PHASES.COUNTDOWN;
     this.startsAt = now + RULES.countdownMs;
     this.endsAt = this.startsAt + this.durationSec * 1000;
-    this.scores = [0, 0, 0, 0];
     this.results = null;
+    // An empty team's zone is free from the start.
+    this.outTeams = new Set(Array.from({ length: this.teams }, (_, t) => t).filter((t) => !manned.has(t)));
+    this.zones = initialZones(this.teams).map((t) => (this.outTeams.has(t) ? FREE_ZONE : t));
     this.projectiles = [];
     this.pickups = [];
     this.nextPickupAt = this.startsAt + RULES.pickupEveryMs;
     for (const p of this.players.values()) {
-      Object.assign(p, { hits: 0, hitsTaken: 0, stunnedUntil: 0, shieldUntil: 0, cooldownUntil: 0, teaUntil: 0, helmet: false, power: null, dx: 0, dy: 0 });
+      Object.assign(p, {
+        lives: RULES.lives, dead: false, late: false, watching: null, hits: 0, kills: 0,
+        stunnedUntil: 0, shieldUntil: 0, cooldownUntil: 0, teaUntil: 0, helmet: false, power: null, dx: 0, dy: 0,
+      });
       this.#spawn(p);
     }
     return { ok: true };
@@ -222,6 +248,9 @@ export class Arena {
 
   backToLobby() {
     this.phase = PHASES.LOBBY;
+    this.zones = initialZones(this.teams);
+    this.outTeams = new Set();
+    for (const p of this.players.values()) Object.assign(p, { lives: RULES.lives, dead: false, late: false });
     this.projectiles = [];
     this.pickups = [];
     return { ok: true };
@@ -248,7 +277,7 @@ export class Arena {
     let best = null;
     let bestD = RULES.throwRange ** 2;
     for (const other of this.players.values()) {
-      if (other.team === player.team || !this.#hittable(other, this.now)) continue;
+      if (other.team === player.team || !this.#hittable(other, this.now)) continue; // never your own team
       const d = dist2(player, other);
       if (d >= bestD || d === 0) continue;
       const len = Math.sqrt(d);
@@ -266,14 +295,15 @@ export class Arena {
   }
 
   #hittable(player, now) {
-    return now >= player.stunnedUntil && now >= player.shieldUntil;
+    return !player.dead && now >= player.shieldUntil;
   }
 
   throwFrom(id, now) {
     const player = this.players.get(id);
     if (!player) return { error: 'Không tìm thấy người chơi' };
     if (this.phase !== PHASES.PLAYING) return { error: 'Chưa vào trận' };
-    if (now < player.stunnedUntil) return { error: 'Đang choáng' };
+    if (player.dead) return { error: player.late ? 'Chờ trận sau nhé' : 'Bạn đã bị loại' };
+    if (now < player.stunnedUntil) return { error: 'Đang khựng' };
     if (now < player.cooldownUntil) return { error: 'Từ từ nào' };
     player.cooldownUntil = now + RULES.throwCooldownMs;
     this.now = now;
@@ -291,22 +321,31 @@ export class Arena {
     return { ok: true, kind, count: angles.length };
   }
 
-  /** Hit one target; returns the event, or null if the helmet took it. */
+  /** One slipper lands on one enemy: the helmet takes it, else a life goes (the last one puts them out). */
   #hit(projectile, target, now, events) {
     if (target.helmet) {
       target.helmet = false;
+      target.shieldUntil = now + RULES.shieldMs;
       events.push({ type: 'block', to: target.id, x: target.x, y: target.y });
       return;
     }
-    target.stunnedUntil = now + RULES.stunMs;
-    target.shieldUntil = target.stunnedUntil + RULES.shieldMs;
+    target.lives -= 1;
     target.dx = 0;
     target.dy = 0;
-    target.hitsTaken += 1;
     const thrower = this.players.get(projectile.owner);
     if (thrower) thrower.hits += 1;
-    this.scores[projectile.team] += 1;
-    events.push({ type: 'hit', from: projectile.owner, to: target.id, team: projectile.team, kind: projectile.kind, x: target.x, y: target.y });
+    const where = { from: projectile.owner, to: target.id, team: projectile.team, kind: projectile.kind, x: target.x, y: target.y };
+    if (target.lives <= 0) {
+      target.dead = true;
+      target.power = null;
+      target.helmet = false;
+      if (thrower) thrower.kills += 1;
+      events.push({ type: 'out', ...where });
+      return;
+    }
+    target.stunnedUntil = now + RULES.hitFreezeMs;
+    target.shieldUntil = now + RULES.shieldMs;
+    events.push({ type: 'hit', ...where, lives: target.lives });
   }
 
   #splash(projectile, now, events) {
@@ -319,12 +358,19 @@ export class Arena {
   }
 
   #botThink(bot, now) {
-    if (now < bot.stunnedUntil) return;
+    if (bot.dead || now < bot.stunnedUntil) return;
+    // Half the bots go and take a free zone next door; the rest (and everyone else afterwards) hunt.
+    const [free] = freeNeighbours(bot.team, this.zones);
+    if (free !== undefined && bot.seed < 50) {
+      const goal = zoneGeometry(this.teams, this.field).centres[free];
+      this.setInput(bot.id, goal.x - bot.x, goal.y - bot.y);
+      return;
+    }
     // Wander towards the nearest enemy, sideways a bit, and throw when one is ahead.
     let target = null;
     let best = Infinity;
     for (const other of this.players.values()) {
-      if (other.team === bot.team) continue;
+      if (other.team === bot.team || other.dead) continue;
       const d = dist2(bot, other);
       if (d < best) {
         best = d;
@@ -335,7 +381,7 @@ export class Arena {
     const wobble = Math.sin(now / 700 + bot.seed) * 0.8;
     const away = best < 220 ** 2 ? -1 : 1; // keep some distance
     this.setInput(bot.id, (target.x - bot.x) * away + (target.y - bot.y) * wobble * 0.3, (target.y - bot.y) * away - (target.x - bot.x) * wobble * 0.3);
-    if (best < (RULES.throwRange * 0.8) ** 2 && this.rng() < 0.08) this.throwFrom(bot.id, now);
+    if (best < (RULES.throwRange * 0.8) ** 2 && this.rng() < 0.05) this.throwFrom(bot.id, now);
   }
 
   /**
@@ -357,23 +403,13 @@ export class Arena {
     }
 
     for (const p of this.players.values()) {
+      if (p.dead) continue;
       if (p.isBot) {
         p.seed ??= this.rng() * 100;
         this.#botThink(p, now);
       }
       if (now < p.stunnedUntil) continue;
-      const speed = RULES.speed * (now < p.teaUntil ? RULES.teaBoost : 1) * dt;
-      p.x = clamp(p.x + p.dx * speed, R, this.field.width - R);
-      p.y = clamp(p.y + p.dy * speed, RULES.topMargin, this.field.height - R);
-      // Pick-ups lying around.
-      const found = this.pickups.findIndex((k) => dist2(p, k) <= (RULES.pickupRadius + R) ** 2);
-      if (found >= 0) {
-        const [pickup] = this.pickups.splice(found, 1);
-        if (pickup.type === 'helmet') p.helmet = true;
-        else if (pickup.type === 'tea') p.teaUntil = now + RULES.teaMs;
-        else p.power = pickup.type;
-        events.push({ type: 'pickup', to: p.id, pickup: pickup.type, x: pickup.x, y: pickup.y });
-      }
+      this.#move(p, RULES.speed * (now < p.teaUntil ? RULES.teaBoost : 1) * dt, events);
     }
 
     const alive = [];
@@ -400,35 +436,119 @@ export class Arena {
       }
     }
     this.projectiles = alive;
+    this.#checkTeams(now, events);
 
     if (now >= this.nextPickupAt) {
       this.nextPickupAt = now + RULES.pickupEveryMs;
       // A bigger field holds more pick-ups (same density).
       const max = Math.round(RULES.maxPickups * (this.field.width / ARENA.width) ** 2);
-      if (this.pickups.length < max) {
+      // Only where a team lives (a pick-up in a free zone could never be reached by most), clear of fences.
+      const spot = this.pickups.length < max && this.#randomSpot((x, y) => {
+        const owner = this.zones[zoneAt(x, y, this.teams, this.field)];
+        return owner !== FREE_ZONE && canStand(x, y, owner, this.zones, this.field, RULES.pickupRadius + R);
+      });
+      if (spot) {
         const type = PICKUPS[Math.floor(this.rng() * PICKUPS.length)].id;
-        this.pickups.push({ id: this.#newId('k'), type, x: 120 + this.rng() * (this.field.width - 240), y: RULES.topMargin + this.rng() * (this.field.height - RULES.topMargin - 100) });
+        this.pickups.push({ id: this.#newId('k'), type, ...spot });
       }
     }
     return events;
+  }
+
+  /** Run, but only inside the team's zones (taking a free one next door by stepping into it); pick things up. */
+  #move(p, speed, events) {
+    if (p.dx !== 0 || p.dy !== 0) this.#run(p, speed, events);
+    // Pick-ups lying around.
+    const found = this.pickups.findIndex((k) => dist2(p, k) <= (RULES.pickupRadius + R) ** 2);
+    if (found >= 0) {
+      const [pickup] = this.pickups.splice(found, 1);
+      if (pickup.type === 'helmet') p.helmet = true;
+      else if (pickup.type === 'tea') p.teaUntil = this.now + RULES.teaMs;
+      else p.power = pickup.type;
+      events.push({ type: 'pickup', to: p.id, pickup: pickup.type, x: pickup.x, y: pickup.y });
+    }
+  }
+
+  /** One step of running: pushing into a fence slides along it, a straight push gets as close as it allows. */
+  #run(p, speed, events) {
+    const inField = (x, y) => ({ x: clamp(x, R, this.field.width - R), y: clamp(y, RULES.topMargin, this.field.height - R) });
+    const fits = (q, margin) => canStand(q.x, q.y, p.team, this.zones, this.field, margin);
+    const tries = [
+      inField(p.x + p.dx * speed, p.y + p.dy * speed),
+      inField(p.x + p.dx * speed, p.y),
+      inField(p.x, p.y + p.dy * speed),
+    ].filter((q) => q.x !== p.x || q.y !== p.y);
+    // Stuck within a fence's margin (a zone next door was just taken): any move that stays in our zones is fine.
+    const margin = fits(p, R) ? R : 0;
+    let next = tries.find((q) => fits(q, margin));
+    if (!next && tries.length > 0) {
+      // Head-on into a fence: go as far as it allows.
+      let lo = 0;
+      let hi = 1;
+      for (let i = 0; i < 6; i += 1) {
+        const mid = (lo + hi) / 2;
+        if (fits({ x: p.x + (tries[0].x - p.x) * mid, y: p.y + (tries[0].y - p.y) * mid }, margin)) lo = mid;
+        else hi = mid;
+      }
+      next = { x: p.x + (tries[0].x - p.x) * lo, y: p.y + (tries[0].y - p.y) * lo };
+    }
+    if (!next) return;
+    p.x = next.x;
+    p.y = next.y;
+    const zone = zoneAt(p.x, p.y, this.teams, this.field);
+    if (this.zones[zone] === FREE_ZONE) {
+      this.zones = this.zones.map((owner, i) => (i === zone ? p.team : owner));
+      events.push({ type: 'capture', team: p.team, zone, to: p.id });
+    }
+  }
+
+  /** People standing per team (late joiners and the knocked-out don't count). */
+  aliveCounts() {
+    const counts = Array.from({ length: this.teams }, () => 0);
+    for (const p of this.players.values()) if (!p.dead && p.team < this.teams) counts[p.team] += 1;
+    return counts;
+  }
+
+  /** A team with nobody standing is out (its zones go free); with one team left the match ends soon. */
+  #checkTeams(now, events) {
+    const counts = this.aliveCounts();
+    counts.forEach((n, team) => {
+      if (n > 0 || this.outTeams.has(team)) return;
+      this.outTeams = new Set([...this.outTeams, team]); // insertion order = order of elimination
+      this.zones = freeZonesOf(team, this.zones);
+      events.push({ type: 'wipe', team });
+    });
+    if (counts.filter((n) => n > 0).length <= 1) this.endsAt = Math.min(this.endsAt, now + RULES.finishDelayMs);
   }
 
   #finish() {
     this.phase = PHASES.FINISHED;
     this.projectiles = [];
     this.pickups = [];
-    const players = [...this.players.values()];
-    const teams = Array.from({ length: this.teams }, (_, t) => ({ ...TEAMS[t], score: this.scores[t], players: players.filter((p) => p.team === t).length }))
-      .sort((a, b) => b.score - a.score);
-    const top = (key) => {
-      const best = players.reduce((a, b) => (b[key] > (a?.[key] ?? 0) ? b : a), null);
-      return best ? { id: best.id, name: best.name, team: best.team, value: best[key] } : null;
-    };
+    const players = [...this.players.values()].filter((p) => !p.late);
+    const alive = this.aliveCounts();
+    // Most people standing wins; a tie goes to the team with more lives left, then to whoever lasted longer.
+    const order = [...this.outTeams];
+    const lasted = (t) => (order.includes(t) ? order.indexOf(t) : order.length);
+    const teams = Array.from({ length: this.teams }, (_, t) => {
+      const members = players.filter((p) => p.team === t);
+      return {
+        ...TEAMS[t],
+        alive: alive[t],
+        lives: members.reduce((n, p) => n + (p.dead ? 0 : p.lives), 0),
+        kills: members.reduce((n, p) => n + p.kills, 0),
+        players: members.length,
+      };
+    }).sort((a, b) => b.alive - a.alive || b.lives - a.lives || lasted(b.id) - lasted(a.id));
+    const best = (list, better) => list.reduce((a, b) => (a === null || better(b, a) ? b : a), null);
+    const thrower = best(players.filter((p) => p.kills > 0), (b, a) => b.kills > a.kills || (b.kills === a.kills && b.hits > a.hits));
+    const survivor = best(players.filter((p) => !p.dead), (b, a) => b.lives > a.lives || (b.lives === a.lives && b.kills > a.kills));
+    const brief = (p, value) => (p ? { id: p.id, name: p.name, team: p.team, value } : null);
     this.results = {
       teams,
-      draw: teams.length > 1 && teams[0].score === teams[1].score,
-      thrower: top('hits'), // "Thánh ném"
-      sandbag: top('hitsTaken'), // "Bao cát"
+      draw: teams.length > 1 && teams[0].alive === teams[1].alive && teams[0].lives === teams[1].lives,
+      thrower: brief(thrower, thrower?.kills), // "Thánh ném": put the most people out
+      survivor: brief(survivor, survivor?.lives), // "Người sống sót": still standing, most lives left
     };
   }
 
@@ -441,24 +561,25 @@ export class Arena {
       title: this.title,
       teams: this.teams,
       field: this.field,
+      zones: this.zones,
       durationSec: this.durationSec,
       startsAt: this.startsAt,
       endsAt: this.endsAt,
       serverNow: now,
-      scores: this.scores.slice(0, this.teams),
+      scores: this.aliveCounts(), // people standing per team
       results: this.results,
       players: [...this.players.values()].map((p) => ({
         id: p.id, name: p.name, initials: p.initials, color: p.color, animal: p.animal, team: p.team,
-        connected: p.connected, isBot: p.isBot, hits: p.hits, hitsTaken: p.hitsTaken,
+        connected: p.connected, isBot: p.isBot, hits: p.hits, kills: p.kills, lives: p.lives, dead: p.dead, late: p.late,
       })),
     };
   }
 
-  /** Positions for the big screen, 20 times a second: compact arrays, integers only. */
+  /** Positions for the big screen, 20 times a second: compact arrays, integers only. The knocked-out aren't in it. */
   frame(now, near = () => true) {
     const p = [];
     for (const pl of this.players.values()) {
-      if (!near(pl)) continue;
+      if (pl.dead || !near(pl)) continue;
       let flags = 0;
       if (now < pl.stunnedUntil) flags |= FLAGS.stunned;
       else if (now < pl.shieldUntil) flags |= FLAGS.shielded;
@@ -468,23 +589,46 @@ export class Arena {
       if (now < pl.teaUntil) flags |= FLAGS.tea;
       if (pl.power === 'triple') flags |= FLAGS.triple;
       if (pl.power === 'balloon') flags |= FLAGS.balloon;
-      p.push([pl.id, Math.round(pl.x), Math.round(pl.y), flags]);
+      p.push([pl.id, Math.round(pl.x), Math.round(pl.y), flags, pl.lives]);
     }
     return {
       t: now,
       p,
       s: this.projectiles.filter(near).map((s) => [s.id, Math.round(s.x), Math.round(s.y), s.kind === 'balloon' ? 1 : 0, s.team]),
       k: this.pickups.filter(near).map((k) => [k.id, Math.round(k.x), Math.round(k.y), k.type]),
-      sc: this.scores.slice(0, this.teams),
+      sc: this.aliveCounts(),
+      z: this.zones,
     };
   }
 
-  /** A phone's own view: the same frame, cut down to what is around its player (much less traffic). */
+  /**
+   * A phone's own view: the same frame, cut down to what is around its player (much less traffic).
+   * Once out (or waiting for the next match) the phone follows a teammate still standing: `f` says whom.
+   */
   viewFor(id, now) {
     const me = this.players.get(id);
     if (!me) return null;
-    const near = (o) => Math.abs(o.x - me.x) <= RULES.viewHalfWidth && Math.abs(o.y - me.y) <= RULES.viewHalfHeight;
-    return this.frame(now, near);
+    const focus = me.dead ? this.#watch(me) : me;
+    const near = (o) => Math.abs(o.x - focus.x) <= RULES.viewHalfWidth && Math.abs(o.y - focus.y) <= RULES.viewHalfHeight;
+    return { ...this.frame(now, near), f: focus.id };
+  }
+
+  /** Who a knocked-out player watches: the same teammate while they stand, else the nearest one standing. */
+  #watch(me) {
+    const current = this.players.get(me.watching);
+    if (current && !current.dead) return current;
+    let best = null;
+    let bestD = Infinity;
+    for (const p of this.players.values()) {
+      if (p.dead) continue;
+      const d = dist2(me, p) + (p.team === me.team ? 0 : 1e12); // teammates first
+      if (d < bestD) {
+        best = p;
+        bestD = d;
+      }
+    }
+    me.watching = best?.id ?? null;
+    return best ?? me;
   }
 
   /** What one phone needs about its own player (cooldown, stun, power-up). */
@@ -497,8 +641,12 @@ export class Arena {
       power: p.power,
       helmet: p.helmet,
       teaMs: Math.max(0, p.teaUntil - now),
+      lives: p.lives,
+      dead: p.dead,
+      late: p.late,
       hits: p.hits,
-      hitsTaken: p.hitsTaken,
+      kills: p.kills,
+      watching: p.dead ? (this.players.get(p.watching)?.name ?? null) : null,
     };
   }
 }

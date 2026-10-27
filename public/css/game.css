@@ -32,6 +32,7 @@
 .scores { display: flex; gap: 10px; flex-wrap: wrap; }
 .score { display: flex; align-items: center; gap: 8px; padding: 4px 14px; border: var(--border); border-radius: 999px; background: #fff; box-shadow: var(--shadow-sm); font: 800 1.4rem var(--font-display); }
 .score b { color: #fff; padding: 0 10px; border-radius: 999px; border: 2px solid var(--ink); }
+.score.out { opacity: 0.45; filter: grayscale(1); }
 .timer { font: 800 2rem var(--font-display); min-width: 4ch; text-align: right; }
 .join-hint { display: flex; align-items: center; gap: 10px; font-weight: 800; }
 .join-hint img { width: 64px; height: 64px; border: 2px solid var(--ink); border-radius: 8px; background: #fff; }
@@ -110,6 +111,11 @@
 }
 .throw:active { transform: translate(4px, 4px); box-shadow: 2px 2px 0 var(--ink); }
 .throw small { display: block; font-size: 1.6rem; line-height: 1; }
-.pad.stunned::after { content: 'ÚI! Đang choáng…'; position: fixed; inset: 0; display: grid; place-items: center; background: rgba(230, 57, 70, 0.35); color: #fff; font: 800 2rem var(--font-display); -webkit-text-stroke: 1px var(--ink); pointer-events: none; }
+.pad.stunned::after { content: 'BỐP! Mất 1 mạng'; position: fixed; inset: 0; display: grid; place-items: center; background: rgba(230, 57, 70, 0.35); color: #fff; font: 800 2rem var(--font-display); -webkit-text-stroke: 1px var(--ink); pointer-events: none; }
 .pad .waiting { position: absolute; inset: 0; display: grid; place-content: center; gap: 8px; text-align: center; background: rgba(255, 246, 229, 0.92); font: 800 1.5rem var(--font-display); padding: 16px; }
 .pad .waiting small { font: 700 1rem var(--font-body); color: var(--ink-soft); }
+/* Knocked out: a strip over the view (the arena stays visible underneath, following a teammate). */
+.pad .waiting.spectate { inset: auto 0 0 0; background: rgba(29, 26, 47, 0.82); color: #fff; font-size: 1.2rem; padding: 10px 16px; }
+.pad .waiting.spectate small { color: #f3e9d6; }
+.pad.out .throw { filter: grayscale(1); opacity: 0.5; }
+#me-lives { letter-spacing: 2px; }
