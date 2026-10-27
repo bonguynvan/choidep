@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex">
+  <title>OBS · Chọi Dép Peti</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;800&family=Be+Vietnam+Pro:wght@500;700;800&display=swap">
+  <link rel="stylesheet" href="/css/style.css">
+  <link rel="stylesheet" href="/css/game.css">
+  <script type="module" src="/js/live.js"></script>
+</head>
+<body class="screen">
+  <header class="screen-bar">
+    <span class="brand"><span class="brand-shoe" aria-hidden="true">🩴</span>Chọi <em>Dép</em></span>
+    <div class="scores" id="scores"></div>
+    <span class="spacer"></span>
+    <div class="join-hint"><img id="mini-qr" alt="Mã QR vào phòng"><span>Vào chơi:<br><code id="mini-code"></code></span></div>
+    <span class="timer" id="timer"></span>
+  </header>
+  <section class="arena-wrap">
+    <canvas id="arena" aria-label="Đấu trường"></canvas>
+    <div class="results" id="results" hidden></div>
+  </section>
+</body>
+</html>

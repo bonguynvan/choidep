@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+  <meta name="theme-color" content="#fff6e5">
+  <title>Chọi Dép Peti · Tay cầm</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;800&family=Be+Vietnam+Pro:wght@500;700;800&display=swap">
+  <link rel="stylesheet" href="/css/style.css">
+  <link rel="stylesheet" href="/css/game.css">
+  <script type="module" src="/js/play.js"></script>
+  <script type="module" src="/js/analytics.js"></script>
+  <script type="module" src="/js/statusBanner.js"></script>
+</head>
+<body class="play">
+  <main class="play-view" id="join-view" hidden>
+    <span class="brand"><span class="brand-shoe" aria-hidden="true">🩴</span>Chọi <em>Dép</em></span>
+    <form class="card" id="join-form" autocomplete="off">
+      <label class="field">Tên của bạn <input id="name" type="text" maxlength="16" placeholder="VD: Minh Anh" required></label>
+      <span class="eyebrow">Nhân vật</span>
+      <div class="picker">
+        <button class="btn btn-ghost" type="button" id="prev" aria-label="Nhân vật trước">◀</button>
+        <canvas id="preview" aria-hidden="true"></canvas>
+        <button class="btn btn-ghost" type="button" id="next" aria-label="Nhân vật sau">▶</button>
+      </div>
+      <p class="picker-name" id="character-name"></p>
+      <button class="btn btn-primary btn-big" type="submit">Vào chơi!</button>
+      <p class="error" id="join-error" role="alert" hidden></p>
+    </form>
+  </main>
+
+  <div class="pad" id="pad" hidden>
+    <div class="pad-bar" id="pad-bar">
+      <span id="me-name"></span>
+      <span class="spacer"></span>
+      <span id="me-stats">🎯 0 · 🥴 0</span>
+    </div>
+    <div class="pad-area">
+      <div class="stick-zone" id="stick-zone">
+        <div class="stick" id="stick" hidden><div class="knob" id="knob"></div></div>
+        <p class="hint">Chạm và kéo để chạy</p>
+      </div>
+      <div class="throw-zone">
+        <button class="throw" type="button" id="throw"><span><small id="power"></small>NÉM</span></button>
+      </div>
+    </div>
+    <div class="waiting" id="waiting" hidden></div>
+  </div>
+</body>
+</html>

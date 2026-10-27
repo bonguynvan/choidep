@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex">
+  <title>Màn hình host · Chọi Dép Peti</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;800&family=Be+Vietnam+Pro:wght@500;700;800&display=swap">
+  <link rel="stylesheet" href="/css/style.css">
+  <link rel="stylesheet" href="/css/game.css">
+  <script type="module" src="/js/host.js"></script>
+  <script type="module" src="/js/analytics.js"></script>
+  <script type="module" src="/js/statusBanner.js"></script>
+</head>
+<body class="screen">
+  <header class="screen-bar">
+    <span class="brand"><span class="brand-shoe" aria-hidden="true">🩴</span>Chọi <em>Dép</em></span>
+    <div class="scores" id="scores" aria-label="Điểm các đội"></div>
+    <span class="spacer"></span>
+    <div class="join-hint" id="join-hint" hidden><img id="mini-qr" alt="Mã QR vào phòng"><span>Vào chơi:<br><code id="mini-code"></code></span></div>
+    <span class="timer" id="timer" aria-live="off"></span>
+    <button class="btn btn-ghost" type="button" id="sound" aria-label="Bật/tắt âm thanh">🔊</button>
+    <button class="btn btn-ghost" type="button" id="fullscreen">⛶</button>
+    <button class="btn btn-ghost" type="button" id="end-match" hidden>Dừng trận</button>
+  </header>
+
+  <section class="lobby" id="lobby">
+    <div class="card qr-card">
+      <p class="eyebrow">Quét để vào chơi</p>
+      <img id="qr" alt="Mã QR vào phòng">
+      <span class="code" id="code"></span>
+      <span class="url" id="join-url"></span>
+      <button class="btn btn-ghost" type="button" id="copy-live">📺 Copy link OBS</button>
+    </div>
+    <div class="lobby-main">
+      <div class="card settings">
+        <label class="field">Tên trận <input id="title" type="text" maxlength="60" placeholder="VD: Đại chiến dép phòng Kế toán"></label>
+        <div class="setting-row"><span class="eyebrow">Số đội</span><div class="seg" id="teams" role="radiogroup" aria-label="Số đội"></div>
+          <button class="btn btn-ghost" type="button" id="shuffle">🔀 Xáo đội</button></div>
+        <div class="setting-row"><span class="eyebrow">Thời lượng</span><div class="seg" id="duration" role="radiogroup" aria-label="Thời lượng"></div></div>
+        <div class="setting-row"><span class="eyebrow">Bot</span>
+          <button class="btn btn-ghost" type="button" id="add-bots">🤖 Thêm 5 bot</button>
+          <button class="btn btn-ghost" type="button" id="remove-bots">Xóa bot</button></div>
+      </div>
+      <div class="teams" id="team-cols"></div>
+      <div class="start-row">
+        <button class="btn btn-primary btn-big" type="button" id="start">🩴 Bắt đầu!</button>
+        <span id="count"></span>
+      </div>
+    </div>
+  </section>
+
+  <section class="arena-wrap" id="arena-wrap" hidden>
+    <canvas id="arena" aria-label="Đấu trường"></canvas>
+    <div class="results" id="results" hidden></div>
+  </section>
+</body>
+</html>

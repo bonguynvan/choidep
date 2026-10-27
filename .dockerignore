@@ -1,0 +1,14 @@
+.git
+.gitattributes
+.github
+node_modules
+data
+test
+coverage
+deploy
+*.log
+.env
+.env.*
+!.env.example
+CLAUDE.md
+public/music/*.mp3

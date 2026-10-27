@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Chọi Dép Peti · Đại chiến ném dép cho cả phòng</title>
+  <meta name="description" content="Chia đội, quét QR, ném dép loạn xạ! Màn hình lớn là đấu trường, điện thoại là tay cầm. Miễn phí, không cần tài khoản, chơi được cả trăm người.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;800&family=Be+Vietnam+Pro:wght@500;700;800&display=swap">
+  <link rel="stylesheet" href="/css/style.css">
+  <link rel="stylesheet" href="/css/game.css">
+  <script type="module" src="/js/home.js"></script>
+  <script type="module" src="/js/analytics.js"></script>
+  <script type="module" src="/js/statusBanner.js"></script>
+</head>
+<body>
+  <header class="top">
+    <span class="brand"><span class="brand-shoe" aria-hidden="true">🩴</span>Chọi <em>Dép</em></span>
+    <a class="btn btn-ghost" href="https://peti.vn">Game khác của Peti</a>
+  </header>
+
+  <main class="home">
+    <section class="home-hero">
+      <p class="eyebrow">Game party cho cả phòng · livestream · tiệc công ty</p>
+      <h1>Chia đội. Quét QR. <em>Ném dép!</em></h1>
+      <p class="lede">Màn hình lớn là đấu trường, điện thoại của mọi người là tay cầm. Chạy, ném dép tự ngắm, nhặt bóng nước và mũ bảo hiểm. Đội nào trúng nhiều nhất sau 3 phút thì thắng. Miễn phí, không cần tài khoản.</p>
+    </section>
+
+    <section class="home-actions">
+      <div class="card home-card">
+        <h2>🏟️ Tổ chức trận đấu</h2>
+        <p>Mở trên máy tính nối TV, máy chiếu hoặc OBS. Màn hình này sẽ là đấu trường.</p>
+        <button class="btn btn-primary btn-big" type="button" id="create-room">Tạo phòng</button>
+        <p class="error" id="create-error" role="alert" hidden></p>
+      </div>
+      <form class="card home-card" id="join-form" autocomplete="off">
+        <h2>📱 Vào chơi</h2>
+        <p>Quét QR trên màn hình lớn, hoặc nhập mã phòng 6 ký tự.</p>
+        <div class="join-row">
+          <input id="join-code" type="text" maxlength="6" placeholder="VD: K7QX2A" aria-label="Mã phòng" required>
+          <button class="btn" type="submit">Vào</button>
+        </div>
+      </form>
+    </section>
+
+    <ol class="how">
+      <li><strong>1. Tạo phòng</strong><span>Màn hình lớn hiện mã QR và các đội.</span></li>
+      <li><strong>2. Mọi người quét QR</strong><span>Nhập tên, chọn nhân vật, tự được chia đội.</span></li>
+      <li><strong>3. Ném!</strong><span>Cần điều hướng để chạy, nút NÉM tự ngắm đối thủ gần nhất.</span></li>
+    </ol>
+  </main>
+
+  <footer class="site-foot">
+    <a href="/dieu-khoan">Điều khoản</a>
+    <a href="/quyen-rieng-tu">Quyền riêng tư</a>
+    <a href="https://github.com/bonguynvan/choidep" rel="noopener">Mã nguồn mở</a>
+  </footer>
+</body>
+</html>

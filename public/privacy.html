@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Quyền riêng tư · Chọi Dép Peti</title>
+  <meta name="description" content="Chọi Dép Peti thu thập rất ít dữ liệu: không tài khoản, không quảng cáo, không bán dữ liệu.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;800&family=Be+Vietnam+Pro:wght@500;700;800&display=swap">
+  <link rel="stylesheet" href="/css/style.css">
+  <link rel="stylesheet" href="/css/game.css">
+  <link rel="stylesheet" href="/css/legal.css">
+  <script type="module" src="/js/analytics.js"></script>
+</head>
+<body>
+  <header class="top">
+    <a class="brand" href="/"><span class="brand-shoe" aria-hidden="true">🩴</span>Chọi <em>Dép</em></a>
+    <span class="eyebrow">🔐 Quyền riêng tư</span>
+  </header>
+
+  <main class="legal">
+    <section class="legal-hero">
+      <p class="eyebrow">Chính sách quyền riêng tư</p>
+      <h1>Dữ liệu ít nhất có thể</h1>
+      <p class="updated">Cập nhật lần cuối: 27/10/2026</p>
+    </section>
+
+    <section class="card legal-summary" aria-labelledby="privacy-summary">
+      <h2 id="privacy-summary">Tóm tắt</h2>
+      <ul>
+        <li><strong>Không cần tài khoản</strong> để chơi hay tạo phòng.</li>
+        <li>Tên người chơi và điểm số chỉ nằm trong bộ nhớ máy chủ và <strong>mất khi phòng đóng</strong>.</li>
+        <li><strong>Không quảng cáo, không bán hay chia sẻ dữ liệu</strong>, không thu thông tin thanh toán.</li>
+        <li>Chúng mình đếm lượt truy cập bằng <strong>Google Analytics</strong>; bạn tắt được cho trình duyệt của mình ở mục 4.</li>
+      </ul>
+    </section>
+
+    <article class="legal-body">
+      <h2>1. Dữ liệu trên máy chủ</h2>
+      <div class="legal-table-wrap">
+        <table class="legal-table">
+          <thead><tr><th>Dữ liệu</th><th>Mục đích</th><th>Lưu bao lâu</th></tr></thead>
+          <tbody>
+            <tr>
+              <td>Dữ liệu phòng: tên người chơi, nhân vật, đội, điểm, tên trận</td>
+              <td data-label="Mục đích">Vận hành trận đấu; hiển thị trên màn hình lớn</td>
+              <td data-label="Lưu bao lâu">Chỉ trong bộ nhớ, xóa khi phòng đóng (sau khoảng 30 phút không hoạt động)</td>
+            </tr>
+            <tr>
+              <td>Địa chỉ IP</td>
+              <td data-label="Mục đích">Giới hạn tần suất, chống spam</td>
+              <td data-label="Lưu bao lâu">Chỉ trong bộ nhớ, khi kết nối còn mở; không ghi vào cơ sở dữ liệu hay nhật ký truy cập</td>
+            </tr>
+            <tr>
+              <td>Bộ đếm theo ngày: số phòng tạo, số trận, số người chơi, số người cao nhất. Chỉ là con số, không gắn với tên, IP hay thiết bị nào</td>
+              <td data-label="Mục đích">Thống kê vận hành</td>
+              <td data-label="Lưu bao lâu">Lâu dài (không phải dữ liệu cá nhân)</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h2>2. Dữ liệu chỉ nằm trên thiết bị của bạn</h2>
+      <p>Trình duyệt lưu (localStorage) mã để quay lại phòng khi mất mạng, khóa host của phòng bạn tạo, cài đặt âm thanh và lựa chọn tắt thống kê (nếu bạn tắt). Bạn xóa được bằng cách xóa dữ liệu trang web trong trình duyệt.</p>
+
+      <h2>3. Những điều chúng mình không làm</h2>
+      <ul>
+        <li>Không bán, cho thuê hay chia sẻ dữ liệu cá nhân cho bên khác để quảng cáo.</li>
+        <li>Không dùng pixel theo dõi hay cookie quảng cáo. Công cụ phân tích duy nhất là Google Analytics (mục 4).</li>
+        <li>Không thu thông tin thanh toán: dịch vụ miễn phí và không có giao dịch tiền.</li>
+      </ul>
+
+      <h2>4. Bên thứ ba</h2>
+      <ul>
+        <li><strong>Google Analytics 4</strong>: đếm lượt xem trang và vài thao tác (tạo phòng, bắt đầu trận kèm số người chơi). Google nhận địa chỉ IP, thông tin trình duyệt/thiết bị và đặt cookie <code>_ga</code>, <code>_ga_*</code>; dữ liệu được giữ tối đa 2 tháng. Chúng mình <strong>không</strong> gửi tên người chơi, mã phòng hay link host, và đã tắt Google Signals cùng quảng cáo cá nhân hóa.
+          <button class="btn btn-ghost analytics-settings" type="button" id="analytics-settings" hidden>Tắt thống kê trên trình duyệt này</button></li>
+        <li><strong>Google Fonts</strong>: trình duyệt tải phông chữ từ máy chủ của Google, nên Google có thể nhận địa chỉ IP và thông tin trình duyệt của bạn.</li>
+        <li><strong>Nhà cung cấp máy chủ</strong> đặt tại Việt Nam.</li>
+      </ul>
+
+      <h2>5. Quyền của bạn</h2>
+      <p>Bạn có quyền được biết, đồng ý hoặc rút lại sự đồng ý, xem, chỉnh sửa, yêu cầu xóa, hạn chế hoặc phản đối việc xử lý dữ liệu cá nhân của mình, và khiếu nại theo quy định pháp luật. Gửi yêu cầu tới <a href="mailto:hello@peti.vn">hello@peti.vn</a>. Tên bạn nhập chỉ tồn tại đến khi phòng đóng; bạn cũng có thể rời phòng bất cứ lúc nào.</p>
+
+      <h2>6. Trẻ em</h2>
+      <p>Khi tổ chức cho trẻ em (lớp học, sinh hoạt), người lớn nên tạo phòng và hướng dẫn các em dùng <strong>biệt danh</strong> thay cho họ tên đầy đủ.</p>
+
+      <h2>7. Thay đổi chính sách</h2>
+      <p>Khi chính sách thay đổi, ngày cập nhật ở đầu trang sẽ thay đổi theo.</p>
+    </article>
+  </main>
+
+  <footer class="site-foot">
+    <a href="/dieu-khoan">Điều khoản</a>
+    <a href="/quyen-rieng-tu" aria-current="page">Quyền riêng tư</a>
+    <a href="https://github.com/bonguynvan/choidep" rel="noopener">Mã nguồn mở</a>
+  </footer>
+</body>
+</html>

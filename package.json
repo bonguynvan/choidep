@@ -1,0 +1,29 @@
+{
+  "name": "choidep",
+  "version": "0.1.0",
+  "description": "Chọi Dép Peti: đại chiến ném dép theo đội cho cả phòng. Màn hình lớn là đấu trường, điện thoại là tay cầm.",
+  "homepage": "https://choidep.peti.vn",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/bonguynvan/choidep.git"
+  },
+  "type": "module",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "node --watch src/index.js",
+    "test": "node --test test/*.test.js"
+  },
+  "engines": {
+    "node": ">=22.13"
+  },
+  "license": "MIT",
+  "dependencies": {
+    "express": "^4.21.2",
+    "qrcode": "^1.5.4",
+    "socket.io": "^4.8.1"
+  },
+  "devDependencies": {
+    "socket.io-client": "^4.8.1"
+  }
+}
