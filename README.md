@@ -28,7 +28,7 @@ Trên máy tính, tay cầm điều khiển được bằng **WASD / mũi tên**
 - Node 22+, Express, Socket.IO, canvas, không có bước build.
 - **Server quyết định mọi thứ** (`src/game/arena.js`): mô phỏng 20 lần/giây, tự ngắm, va chạm, đồ nhặt, bot.
 - **Màn hình lớn / OBS** nhận vị trí 20 lần/giây và nội suy cho mượt (`public/js/arenaView.js`).
-  **Điện thoại** chỉ gửi hướng chạy + nút ném, chỉ nhận trạng thái của chính mình 4 lần/giây.
+  **Điện thoại** chỉ gửi hướng chạy + nút ném; nhận đấu trường quanh mình 10 lần/giây và trạng thái riêng 4 lần/giây.
 - Nhân vật vẽ bằng canvas, cache thành sprite (`public/js/spriteCache.js`), chép từ Đua Vịt.
 
 ## Chịu tải
