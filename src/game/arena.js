@@ -1,10 +1,11 @@
 // One room's match: lobby -> countdown -> playing -> finished. The server owns the simulation;
 // phones only send a direction and "throw", the big screen draws what step()/frame() report.
-// Rules: everyone has RULES.lives lives, a slipper from another team takes one, the last one puts you out.
+// Rules ("classic"): everyone has RULES.lives lives, a slipper from another team takes one, the last one puts
+// you out. "infect": nobody is out, a slipper turns you into the thrower's team (back to your own next match).
 // Each team runs only in its own zone of the field (see shared/zones.js); the last team with someone standing wins.
 import { randomBytes } from 'node:crypto';
 import { ANIMALS, FACE_COLORS, findAnimal, initialsOf } from '../../shared/catalog.js';
-import { ARENA, FLAGS, FREE_ZONE, PHASES, PICKUPS, RULES, TEAMS, fieldFor } from '../../shared/rules.js';
+import { ARENA, FLAGS, FREE_ZONE, MODES, PHASES, PICKUPS, RULES, TEAMS, fieldFor } from '../../shared/rules.js';
 import { canStand, freeNeighbours, freeZonesOf, initialZones, zoneAt, zoneGeometry } from '../../shared/zones.js';
 import { sanitizeText } from '../text.js';
 
@@ -28,6 +29,7 @@ export class Arena {
     this.field = { ...ARENA }; // set for each match by the number of players (fieldFor)
     this.title = '';
     this.teams = 2;
+    this.mode = 'classic';
     this.durationSec = RULES.defaultDurationSec;
     this.players = new Map();
     this.projectiles = [];
@@ -65,11 +67,11 @@ export class Arena {
     return null;
   }
 
-  /** Somewhere in the team's own zone, clear of the fences, facing the middle of the field. */
-  #spawn(player) {
-    const own = initialZones(this.teams);
-    const spot = this.#randomSpot((x, y) => canStand(x, y, player.team, own, this.field, R * 2))
-      ?? zoneGeometry(this.teams, this.field).centres[player.team];
+  /** Somewhere in the team's zones (its own at the start), clear of the fences, facing the middle of the field. */
+  #spawn(player, zones = initialZones(this.teams)) {
+    const home = Math.max(0, zones.indexOf(player.team));
+    const spot = this.#randomSpot((x, y) => canStand(x, y, player.team, zones, this.field, R * 2))
+      ?? zoneGeometry(this.teams, this.field).centres[home];
     player.x = spot.x;
     player.y = spot.y;
     player.fx = player.x < this.field.width / 2 ? 1 : -1;
@@ -94,9 +96,10 @@ export class Arena {
       lives: RULES.lives, dead: false,
       // Joined during a match: watches until the next one (it would be unfair to drop in fresh mid-fight).
       late: this.phase === PHASES.COUNTDOWN || this.phase === PHASES.PLAYING,
-      hits: 0, kills: 0,
+      hits: 0, kills: 0, infected: 0,
       ...extra,
     };
+    player.homeTeam = player.team;
     if (player.late) Object.assign(player, { lives: 0, dead: true });
     this.#spawn(player);
     this.players.set(player.id, player);
@@ -195,8 +198,16 @@ export class Arena {
     }
     list.forEach((p, i) => {
       p.team = i % this.teams;
+      p.homeTeam = p.team;
       this.#spawn(p);
     });
+    return { ok: true };
+  }
+
+  setMode(mode) {
+    if (!MODES.some((m) => m.id === mode)) return { error: 'Chế độ không hợp lệ' };
+    if (!this.#inLobby()) return { error: 'Đang chơi, đổi sau nhé' };
+    this.mode = mode;
     return { ok: true };
   }
 
@@ -223,6 +234,7 @@ export class Arena {
   start(now) {
     if (!this.#inLobby()) return { error: 'Trận đang diễn ra' };
     if (this.players.size < 2) return { error: 'Cần ít nhất 2 người (có thể thêm bot)' };
+    this.#restoreTeams();
     const manned = new Set([...this.players.values()].map((p) => p.team));
     if (manned.size < 2) return { error: 'Cần ít nhất 2 đội có người (bấm Xáo đội)' };
     this.field = fieldFor(this.players.size);
@@ -238,7 +250,7 @@ export class Arena {
     this.nextPickupAt = this.startsAt + RULES.pickupEveryMs;
     for (const p of this.players.values()) {
       Object.assign(p, {
-        lives: RULES.lives, dead: false, late: false, watching: null, hits: 0, kills: 0,
+        lives: RULES.lives, dead: false, late: false, watching: null, hits: 0, kills: 0, infected: 0,
         stunnedUntil: 0, shieldUntil: 0, cooldownUntil: 0, teaUntil: 0, helmet: false, power: null, dx: 0, dy: 0,
       });
       this.#spawn(p);
@@ -246,8 +258,17 @@ export class Arena {
     return { ok: true };
   }
 
+  /** After "Lây nhiễm" everyone goes back to the team they started in. */
+  #restoreTeams() {
+    for (const p of this.players.values()) {
+      if (Number.isInteger(p.homeTeam) && p.homeTeam < this.teams) p.team = p.homeTeam;
+      p.homeTeam = p.team;
+    }
+  }
+
   backToLobby() {
     this.phase = PHASES.LOBBY;
+    this.#restoreTeams();
     this.zones = initialZones(this.teams);
     this.outTeams = new Set();
     for (const p of this.players.values()) Object.assign(p, { lives: RULES.lives, dead: false, late: false });
@@ -323,18 +344,24 @@ export class Arena {
 
   /** One slipper lands on one enemy: the helmet takes it, else a life goes (the last one puts them out). */
   #hit(projectile, target, now, events) {
+    // "Lây nhiễm": a slipper from a team that is gone (everyone turned) can't recruit anyone.
+    if (this.mode === 'infect' && this.outTeams.has(projectile.team)) return;
     if (target.helmet) {
       target.helmet = false;
       target.shieldUntil = now + RULES.shieldMs;
       events.push({ type: 'block', to: target.id, x: target.x, y: target.y });
       return;
     }
-    target.lives -= 1;
     target.dx = 0;
     target.dy = 0;
     const thrower = this.players.get(projectile.owner);
     if (thrower) thrower.hits += 1;
     const where = { from: projectile.owner, to: target.id, team: projectile.team, kind: projectile.kind, x: target.x, y: target.y };
+    if (this.mode === 'infect') {
+      this.#infect(target, thrower, where, now, events);
+      return;
+    }
+    target.lives -= 1;
     if (target.lives <= 0) {
       target.dead = true;
       target.power = null;
@@ -455,6 +482,19 @@ export class Arena {
     return events;
   }
 
+  /** "Lây nhiễm": the target joins the thrower's team and reappears on its ground, briefly untouchable. */
+  #infect(target, thrower, where, now, events) {
+    const old = target.team;
+    target.team = where.team;
+    target.infected += 1;
+    target.power = null;
+    if (thrower) thrower.kills += 1;
+    this.#spawn(target, this.zones);
+    target.stunnedUntil = now + RULES.hitFreezeMs;
+    target.shieldUntil = now + RULES.shieldMs * 1.5;
+    events.push({ type: 'infect', ...where, old });
+  }
+
   /** Run, but only inside the team's zones (taking a free one next door by stepping into it); pick things up. */
   #move(p, speed, events) {
     if (p.dx !== 0 || p.dy !== 0) this.#run(p, speed, events);
@@ -542,13 +582,17 @@ export class Arena {
     }).sort((a, b) => b.alive - a.alive || b.lives - a.lives || lasted(b.id) - lasted(a.id));
     const best = (list, better) => list.reduce((a, b) => (a === null || better(b, a) ? b : a), null);
     const thrower = best(players.filter((p) => p.kills > 0), (b, a) => b.kills > a.kills || (b.kills === a.kills && b.hits > a.hits));
-    const survivor = best(players.filter((p) => !p.dead), (b, a) => b.lives > a.lives || (b.lives === a.lives && b.kills > a.kills));
+    // Classic: still standing with most lives. Lây nhiễm: never turned, most recruits.
+    const survivor = this.mode === 'infect'
+      ? best(players.filter((p) => p.infected === 0), (b, a) => b.kills > a.kills)
+      : best(players.filter((p) => !p.dead), (b, a) => b.lives > a.lives || (b.lives === a.lives && b.kills > a.kills));
     const brief = (p, value) => (p ? { id: p.id, name: p.name, team: p.team, value } : null);
     this.results = {
+      mode: this.mode,
       teams,
       draw: teams.length > 1 && teams[0].alive === teams[1].alive && teams[0].lives === teams[1].lives,
-      thrower: brief(thrower, thrower?.kills), // "Thánh ném": put the most people out
-      survivor: brief(survivor, survivor?.lives), // "Người sống sót": still standing, most lives left
+      thrower: brief(thrower, thrower?.kills), // "Thánh ném" / "Thánh lây": most knocked out / recruited
+      survivor: brief(survivor, this.mode === 'infect' ? survivor?.kills : survivor?.lives), // "Người sống sót" / "Kiên định"
     };
   }
 
@@ -560,6 +604,7 @@ export class Arena {
       phase: this.phase,
       title: this.title,
       teams: this.teams,
+      mode: this.mode,
       field: this.field,
       zones: this.zones,
       durationSec: this.durationSec,

@@ -18,6 +18,9 @@ Miễn phí, không cần tài khoản, chơi được cả trăm người một
 - Từ 3 đội trở lên: đội nào bị loại hết thì khu của đội đó thành **khu trống**, đội bên cạnh nào chạy vào trước thì **chiếm** luôn.
 - **Thắng**: đội cuối cùng còn người. Hết giờ thì đội còn nhiều người hơn thắng, bằng nhau thì xét tổng số mạng còn lại.
 - Vào phòng giữa trận thì chờ trận sau.
+- **Chế độ Lây nhiễm** (host chọn trong sảnh): không ai bị loại, trúng dép thì **đổi sang đội của người ném** và hiện lại
+  trong khu đội mới. Cả sân một màu thì thắng, hết giờ thì đội đông nhất thắng. Trận sau ai về đội nấy.
+  Giải: **Thánh lây** (kéo nhiều người nhất) và **Kiên định** (chưa bị lây lần nào).
 - Đồ nhặt trên sân: 🩴 dép tổ ong (ném 3 chiếc), 🎈 bóng nước (nổ cả vùng), ⛑️ mũ bảo hiểm (đỡ 1 lần), 🧋 trà sữa (chạy nhanh).
 - Cuối trận: đội thắng, **Thánh ném** (hạ nhiều người nhất) và **Người sống sót** (còn đứng, nhiều mạng nhất).
 - Host chọn 2–4 đội, 1–5 phút, xáo đội, thêm bot cho đông vui. Có trang OBS riêng (`/r/MÃ/live`) cho livestream.

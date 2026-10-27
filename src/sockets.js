@@ -216,6 +216,7 @@ export function registerSockets(io, rooms, { buildId, trustProxy, publicUrl, max
     hostAction('host:teams', ({ teams }) => arena.setTeams(Number(teams)));
     hostAction('host:shuffle', () => arena.shuffle());
     hostAction('host:duration', ({ seconds }) => arena.setDuration(Number(seconds)));
+    hostAction('host:mode', ({ mode }) => arena.setMode(String(mode)));
     hostAction('host:title', ({ title }) => arena.setTitle(title));
     hostAction('host:bots', ({ count }) => arena.addBots(Number(count)));
     hostAction('host:removeBots', () => arena.removeBots());
@@ -262,7 +263,8 @@ export function tickRooms(io, rooms, now, tick) {
         io.to(screenOf(entry.code)).emit('fx', events);
         // A team out / a zone taken: every phone shows the banner, and the timer may have been cut short.
         const forAll = events.filter((e) => e.type === 'wipe' || e.type === 'capture');
-        if (forAll.length > 0) entry.dirty = true;
+        // Someone changed team ("Lây nhiễm"): everyone's roster (colours, phone bar) needs the news.
+        if (forAll.length > 0 || events.some((e) => e.type === 'infect')) entry.dirty = true;
         const touched = new Set(events.flatMap((e) => [e.to, e.from]).filter(Boolean));
         if (touched.size > 0 || forAll.length > 0) {
           socketsIn(io, entry.code).forEach((s) => {

@@ -54,6 +54,12 @@ export const RULES = Object.freeze({
   viewHalfHeight: 560,
 });
 
+/** Game modes the host picks in the lobby. */
+export const MODES = Object.freeze([
+  { id: 'classic', name: 'Né dép', hint: `Mỗi người ${RULES.lives} mạng, hết mạng thì bị loại. Đội cuối cùng còn người thắng.` },
+  { id: 'infect', name: 'Lây nhiễm', hint: 'Trúng dép thì đổi sang đội của người ném. Cả sân một màu thì thắng.' },
+]);
+
 export const PICKUPS = Object.freeze([
   { id: 'triple', icon: '🩴', name: 'Dép tổ ong', hint: 'Lần ném tới bay 3 chiếc' },
   { id: 'balloon', icon: '🎈', name: 'Bóng nước', hint: 'Lần ném tới nổ cả một vùng' },

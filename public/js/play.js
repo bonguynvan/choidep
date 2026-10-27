@@ -1,6 +1,6 @@
 // The phone: join with a name and a character, then it becomes a controller (joystick + THROW).
 import { ANIMALS, findAnimal } from '/shared/catalog.js';
-import { PICKUPS, RULES, TEAMS } from '/shared/rules.js';
+import { MODES, PICKUPS, RULES, TEAMS } from '/shared/rules.js';
 import { request, roomStorage, socket, toast } from './net.js';
 import { paintAnimalCard } from './draw.js';
 import { ArenaView } from './arenaView.js';
@@ -90,11 +90,15 @@ function render() {
   waiting.classList.remove('spectate');
   waiting.hidden = false;
   if (state.phase === 'lobby') {
-    waiting.replaceChildren(...note(`Bạn ở đội ${team.name}!`, `Mỗi người ${RULES.lives} mạng, chỉ chạy trong khu đội mình. Nhìn lên màn hình lớn, chờ host bấm bắt đầu nhé.`));
+    const mode = MODES.find((m) => m.id === state.mode) ?? MODES[0];
+    waiting.replaceChildren(...note(`Bạn ở đội ${team.name}!`, `Chế độ ${mode.name}: ${mode.hint} Chỉ chạy trong khu đội mình. Chờ host bấm bắt đầu nhé.`));
   } else if (state.phase === 'finished' && state.results) {
     const rank = state.results.teams.findIndex((t) => t.id === me.team) + 1;
     const headline = state.results.draw && rank <= 2 ? '🤝 Hòa!' : rank === 1 ? '🏆 Đội bạn thắng!' : `Đội bạn hạng ${rank}`;
-    waiting.replaceChildren(...note(headline, `Bạn hạ ${mine?.kills ?? me.kills} người, ném trúng ${mine?.hits ?? me.hits} lần.`));
+    const kills = mine?.kills ?? me.kills;
+    waiting.replaceChildren(...note(headline, state.mode === 'infect'
+      ? `Bạn kéo ${kills} người về đội, ném trúng ${mine?.hits ?? me.hits} lần.`
+      : `Bạn hạ ${kills} người, ném trúng ${mine?.hits ?? me.hits} lần.`));
   } else if (out) {
     waiting.classList.add('spectate');
     const watching = mine.watching ? `Đang xem ${mine.watching} chơi.` : 'Đang xem trận đấu.';
@@ -119,7 +123,7 @@ socket.on('me', (me) => {
   $('pad').classList.toggle('stunned', me.stunnedMs > 0);
   $('throw').style.setProperty('--cd', String(Math.min(1, me.cooldownMs / RULES.throwCooldownMs)));
   $('power').textContent = [me.power && PICKUP_ICON[me.power], me.helmet && '⛑️', me.teaMs > 0 && '🧋'].filter(Boolean).join('');
-  $('me-lives').textContent = me.late ? '⏳' : hearts(me.lives);
+  $('me-lives').textContent = me.late ? '⏳' : state?.mode === 'infect' ? '' : hearts(me.lives);
   $('me-stats').textContent = `🎯 ${me.kills}`;
   if (changed) render();
 });
@@ -130,6 +134,8 @@ socket.on('me:fx', (events) => {
     else if (e.type === 'out' && e.to === myId) buzz([300, 80, 300]);
     else if (e.type === 'hit' && e.from === myId) { buzz(40); toast('🎯 Trúng rồi!'); }
     else if (e.type === 'out' && e.from === myId) { buzz([60, 40, 60]); toast('💥 Hạ gục 1 người!'); }
+    else if (e.type === 'infect' && e.to === myId) { buzz([200, 60, 200]); toast(`🧟 Bạn bị lây! Giờ bạn ở đội ${TEAMS[e.team].name}`); }
+    else if (e.type === 'infect' && e.from === myId) { buzz([60, 40, 60]); toast('🧟 Kéo được 1 người về đội!'); }
     else if (e.type === 'capture' && e.to === myId) toast('🚩 Bạn chiếm được khu mới cho đội!');
     else if (e.type === 'block' && e.to === myId) { buzz(60); toast('⛑️ Mũ đã đỡ giúp bạn!'); }
     else if (e.type === 'pickup' && e.to === myId) toast(`Nhặt được ${PICKUP_ICON[e.pickup] ?? ''} ${PICKUPS.find((p) => p.id === e.pickup)?.hint ?? ''}`);

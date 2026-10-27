@@ -263,7 +263,7 @@ test('an empty team\'s zone is free from the start; a match needs two teams with
   assert.ok(arena.start(0).ok);
   assert.deepEqual(arena.zones, [0, 1, FREE_ZONE]);
   arena.backToLobby();
-  for (const p of arena.players.values()) p.team = 0;
+  for (const p of arena.players.values()) Object.assign(p, { team: 0, homeTeam: 0 });
   assert.ok(arena.start(0).error);
 });
 
@@ -440,4 +440,78 @@ test('three teams: the first team in takes the free zone', () => {
   const capture = events.find((e) => e.type === 'capture');
   assert.deepEqual([capture.team, capture.zone], [left.team, 2]);
   assert.equal(zoneAt(right.x, right.y, 3, arena.field), 1, 'right stays out');
+});
+
+/** A "Lây nhiễm" match already playing. */
+function infecting(names = ['An', 'Bình', 'Chi', 'Dũng']) {
+  const arena = new Arena({ rng: seeded() });
+  const players = names.map((n) => arena.join(n, 'duck').player);
+  assert.ok(arena.setMode('infect').ok);
+  arena.start(0);
+  arena.step(RULES.countdownMs);
+  return { arena, players, now: RULES.countdownMs };
+}
+
+test('the mode is picked in the lobby only, from the known ones', () => {
+  const arena = new Arena({ rng: seeded() });
+  assert.ok(arena.setMode('zombies').error);
+  assert.ok(arena.setMode('infect').ok);
+  assert.equal(arena.snapshot(0).mode, 'infect');
+  arena.join('An', 'duck');
+  arena.join('Bình', 'duck');
+  arena.start(0);
+  assert.ok(arena.setMode('classic').error, 'not mid-match');
+});
+
+test('Lây nhiễm: a hit turns the target to the thrower\'s team, on its ground, nobody is out', () => {
+  const { arena, players: [a, b], now } = infecting();
+  Object.assign(a, { x: 300, y: 450, fx: 1, fy: 0 });
+  Object.assign(b, { x: 900, y: 450, lives: RULES.lives });
+  assert.notEqual(a.team, b.team);
+  arena.throwFrom(a.id, now);
+  const { events } = run(arena, now, 1500);
+  const turned = events.find((e) => e.type === 'infect');
+  assert.ok(turned);
+  assert.deepEqual([turned.from, turned.to, turned.team, turned.old], [a.id, b.id, a.team, 1 - a.team]);
+  assert.equal(b.team, a.team);
+  assert.equal(b.dead, false);
+  assert.equal(b.lives, RULES.lives, 'no lives lost');
+  assert.equal(zoneAt(b.x, b.y, 2, arena.field), a.team, 'reappears on the new team\'s ground');
+  assert.equal(a.kills, 1);
+  assert.deepEqual(arena.aliveCounts(), [a.team === 0 ? 3 : 1, a.team === 0 ? 1 : 3]);
+});
+
+test('Lây nhiễm: one colour left wins, then everyone goes back to their own team', () => {
+  const { arena, players, now } = infecting();
+  const [a] = players;
+  const home = players.map((p) => p.team);
+  // Turn the other team one by one.
+  let t = now;
+  for (const p of players.filter((q) => q.team !== a.team)) {
+    Object.assign(a, { x: 300, y: 450, fx: 1, fy: 0, cooldownUntil: 0 });
+    Object.assign(p, { x: 900, y: 450, shieldUntil: 0 });
+    arena.throwFrom(a.id, t);
+    ({ now: t } = run(arena, t, 1500));
+  }
+  run(arena, t, RULES.finishDelayMs + TICK);
+  assert.equal(arena.phase, PHASES.FINISHED);
+  assert.equal(arena.results.mode, 'infect');
+  assert.equal(arena.results.teams[0].id, a.team);
+  assert.equal(arena.results.teams[0].alive, players.length);
+  assert.equal(arena.results.thrower.id, a.id);
+  assert.equal(arena.results.thrower.value, 2);
+  assert.ok([a.id, players.find((p) => p !== a && home[players.indexOf(p)] === a.team).id].includes(arena.results.survivor.id), 'never turned');
+  arena.start(t + 5000);
+  assert.deepEqual(players.map((p) => p.team), home, 'back to the teams they started in');
+});
+
+test('Lây nhiễm: a slipper from a team that is gone recruits nobody', () => {
+  const { arena, players: [a, b], now } = infecting(['An', 'Bình', 'Chi']);
+  Object.assign(a, { x: 300, y: 450, fx: 1, fy: 0 });
+  Object.assign(b, { x: 900, y: 450 });
+  arena.throwFrom(a.id, now);
+  arena.outTeams = new Set([a.team]); // as if a's team was all turned while the slipper flew
+  const { events } = run(arena, now, 1500);
+  assert.ok(!events.some((e) => e.type === 'infect'));
+  assert.notEqual(b.team, a.team);
 });

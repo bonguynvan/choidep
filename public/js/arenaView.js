@@ -90,7 +90,11 @@ export class ArenaView {
       } else if (e.type === 'out') {
         this.fx.push({ type: 'puff', x: e.x, y: e.y - 30, born });
         this.fx.push({ type: 'text', text: 'LOẠI!', color: '#ff4d6d', big: true, x: e.x, y: e.y - 80, born });
-      } else if (e.type === 'wipe') this.banner = { text: `Đội ${TEAMS[e.team].name} bị loại!`, color: TEAMS[e.team].color, born };
+      } else if (e.type === 'infect') {
+        // Turned: a puff where they stood (they reappear on their new team's ground).
+        this.fx.push({ type: 'puff', x: e.x, y: e.y - 30, born });
+        this.fx.push({ type: 'text', text: 'LÂY!', color: TEAMS[e.team]?.color ?? '#7ed957', big: true, x: e.x, y: e.y - 80, born });
+      } else if (e.type === 'wipe') this.banner = { text: `Đội ${TEAMS[e.team].name} ${this.state?.mode === 'infect' ? 'bị lây hết' : 'bị loại'}!`, color: TEAMS[e.team].color, born };
       else if (e.type === 'capture') this.banner = { text: `Đội ${TEAMS[e.team].name} chiếm thêm khu!`, color: TEAMS[e.team].color, born };
       else if (e.type === 'block') this.fx.push({ type: 'text', text: 'KENG!', color: '#d6dbe4', x: e.x, y: e.y - 70, born });
       else if (e.type === 'splash') this.fx.push({ type: 'splash', x: e.x, y: e.y, born });
@@ -252,7 +256,7 @@ export class ArenaView {
       ctx.ellipse(x, y, 27, 10, 0, 0, Math.PI * 2);
       ctx.fill();
       ctx.stroke();
-      this.#lives(ctx, x, y + 21, lives);
+      if (this.state?.mode !== 'infect') this.#lives(ctx, x, y + 21, lives); // no lives in "Lây nhiễm"
       const items = [];
       if (flags & FLAGS.helmet) items.push('⛑️');
       if (flags & FLAGS.tea) items.push('🧋');

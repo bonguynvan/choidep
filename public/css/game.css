@@ -33,6 +33,7 @@
 .score { display: flex; align-items: center; gap: 8px; padding: 4px 14px; border: var(--border); border-radius: 999px; background: #fff; box-shadow: var(--shadow-sm); font: 800 1.4rem var(--font-display); }
 .score b { color: #fff; padding: 0 10px; border-radius: 999px; border: 2px solid var(--ink); }
 .score.out { opacity: 0.45; filter: grayscale(1); }
+.mode-hint { margin: -4px 0 4px; color: var(--ink-soft); font-weight: 700; font-size: 0.95rem; }
 .timer { font: 800 2rem var(--font-display); min-width: 4ch; text-align: right; }
 .join-hint { display: flex; align-items: center; gap: 10px; font-weight: 800; }
 .join-hint img { width: 64px; height: 64px; border: 2px solid var(--ink); border-radius: 8px; background: #fff; }

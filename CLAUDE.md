@@ -23,6 +23,8 @@ npm test        # node:test, test/*.test.js
   sliding along fences; a wiped-out team's zones are free and the first
   team next door to step in takes them), last team standing wins (`#checkTeams`), late joiners wait (`late`),
   pick-ups, bots (`#botThink`). Knocked-out phones follow a teammate (`viewFor` adds `f`).
+  Modes (`MODES`, `arena.mode`, host picks in the lobby): `classic` (lives) and `infect` (a hit moves the target to
+  the thrower's team and respawns it on that team's ground, `#infect`; `homeTeam` restores teams at the next start).
   `frame()` = compact positions for big screens,
   `controllerState(id)` = one phone's own state, `viewFor(id)` = the frame cut to the box around that player
   (`RULES.viewHalfWidth/Height`), `snapshot()` = roster/scores/field (sent when `entry.dirty`).

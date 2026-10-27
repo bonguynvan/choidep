@@ -1,5 +1,5 @@
 // Big screen + host controls: the lobby (QR, teams, settings), then the arena during a match.
-import { RULES, TEAMS } from '/shared/rules.js';
+import { MODES, RULES, TEAMS } from '/shared/rules.js';
 import { el, request, roomCode, roomStorage, socket, toast } from './net.js';
 import { ArenaView } from './arenaView.js';
 import { renderScores, resultsCard, timerText } from './hud.js';
@@ -50,10 +50,13 @@ const segment = (container, choices, label, onPick) => choices.map((value) => {
   container.append(button);
   return { value, button };
 });
+const modeButtons = segment($('mode'), MODES.map((m) => m.id), (id) => MODES.find((m) => m.id === id).name, (mode) => act('host:mode', { mode }));
 const teamButtons = segment($('teams'), RULES.teamChoices, (n) => `${n} đội`, (teams) => act('host:teams', { teams }));
 const durationButtons = segment($('duration'), RULES.durationChoices, (s) => `${s / 60} phút`, (seconds) => act('host:duration', { seconds }));
 
 function renderLobby() {
+  modeButtons.forEach(({ value, button }) => button.setAttribute('aria-checked', String(value === state.mode)));
+  $('mode-hint').textContent = MODES.find((m) => m.id === state.mode)?.hint ?? '';
   teamButtons.forEach(({ value, button }) => button.setAttribute('aria-checked', String(value === state.teams)));
   durationButtons.forEach(({ value, button }) => button.setAttribute('aria-checked', String(value === state.durationSec)));
   if (document.activeElement !== $('title')) $('title').value = state.title;
@@ -89,7 +92,7 @@ function render() {
 }
 
 function startMatch() {
-  track('match_start', { players: state?.players.length ?? 0 });
+  track('match_start', { players: state?.players.length ?? 0, mode: state?.mode ?? 'classic' });
   return act('host:start');
 }
 

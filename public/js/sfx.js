@@ -40,6 +40,7 @@ const SOUNDS = {
   block: () => tone(1500, { type: 'square', dur: 0.08, gain: 0.05 }),
   out: () => { tone(330, { type: 'sawtooth', dur: 0.35, gain: 0.08, slide: -260 }); tone(160, { at: 0.1, type: 'triangle', dur: 0.3, gain: 0.1, slide: -100 }); },
   wipe: () => [392, 330, 262].forEach((f, i) => tone(f, { at: i * 0.14, dur: 0.2, type: 'square', gain: 0.06 })),
+  infect: () => { tone(200, { type: 'sawtooth', dur: 0.18, gain: 0.06, slide: 400 }); tone(600, { at: 0.12, type: 'square', dur: 0.12, gain: 0.05 }); },
   capture: () => [523, 784].forEach((f, i) => tone(f, { at: i * 0.1, dur: 0.16, type: 'triangle', gain: 0.09 })),
   pickup: () => { tone(660, { dur: 0.08 }); tone(990, { at: 0.08, dur: 0.1 }); },
   go: () => tone(440, { type: 'sawtooth', dur: 0.5, gain: 0.07, slide: 220 }),
@@ -63,7 +64,7 @@ export function playEvents(events) {
     if (e.type === 'hit') play(e.kind === 'balloon' ? 'splash' : 'bonk');
     else if (e.type === 'splash') play('splash');
     else if (e.type === 'block') play('block');
-    else if (e.type === 'out' || e.type === 'wipe' || e.type === 'capture') play(e.type);
+    else if (['out', 'wipe', 'capture', 'infect'].includes(e.type)) play(e.type);
     else if (e.type === 'pickup') play('pickup');
     else if (e.type === 'go') play('go');
     else if (e.type === 'end') play('end');
