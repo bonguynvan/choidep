@@ -16,7 +16,7 @@ socket.on('state', (next) => {
   state = next;
   clockOffset = next.serverNow - Date.now();
   view.setState(next);
-  renderScores($('scores'), next.teams, next.scores);
+  renderScores($('scores'), next.teams, next.scores, { inMatch: next.phase !== 'lobby' });
   $('results').hidden = next.phase !== 'finished' || !next.results;
   if (!$('results').hidden) $('results').replaceChildren(resultsCard(next.results));
 });

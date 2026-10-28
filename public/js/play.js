@@ -1,17 +1,25 @@
 // The phone: join with a name and a character, then it becomes a controller (joystick + THROW).
 import { ANIMALS, findAnimal } from '/shared/catalog.js';
-import { PICKUPS, TEAMS } from '/shared/rules.js';
+import { MODES, PICKUPS, RULES, TEAMS } from '/shared/rules.js';
 import { request, roomStorage, socket, toast } from './net.js';
 import { paintAnimalCard } from './draw.js';
+import { ArenaView } from './arenaView.js';
 
 const $ = (id) => document.getElementById(id);
 const INPUT_EVERY_MS = 60;
 const STICK_RADIUS = 60; // px of drag for full speed
 const PICKUP_ICON = Object.fromEntries(PICKUPS.map((p) => [p.id, p.icon]));
 const buzz = (pattern) => navigator.vibrate?.(pattern);
+const hearts = (n) => '❤️'.repeat(Math.max(0, n)) + '🤍'.repeat(Math.max(0, RULES.lives - n));
+const note = (title, small) => [document.createTextNode(title), Object.assign(document.createElement('small'), { textContent: small })];
 
 let state = null;
 let myId = null;
+let mine = null; // the latest 'me' (lives, out, watching…)
+// The phone shows the arena around its own player (the server sends only what is nearby).
+const view = new ArenaView($('view'), { follow: () => myId });
+// A real keyboard and mouse: show the key hint instead of the touch joystick.
+if (matchMedia('(hover: hover) and (pointer: fine)').matches) $('pad').classList.add('desktop');
 let characterIndex = Math.floor(Math.random() * ANIMALS.length);
 
 // ---------- join ----------
@@ -76,16 +84,25 @@ function render() {
   const team = TEAMS[me.team];
   $('pad-bar').style.background = team.color;
   $('me-name').textContent = `${me.name} · Đội ${team.name}`;
-  $('me-stats').textContent = `🎯 ${me.hits} · 🥴 ${me.hitsTaken}`;
   const waiting = $('waiting');
+  const out = Boolean(mine?.dead) && state.phase !== 'lobby';
+  $('pad').classList.toggle('out', out && state.phase !== 'finished');
+  waiting.classList.remove('spectate');
+  waiting.hidden = false;
   if (state.phase === 'lobby') {
-    waiting.hidden = false;
-    waiting.replaceChildren(document.createTextNode(`Bạn ở đội ${team.name}!`), Object.assign(document.createElement('small'), { textContent: 'Nhìn lên màn hình lớn. Chờ host bấm bắt đầu nhé.' }));
+    const mode = MODES.find((m) => m.id === state.mode) ?? MODES[0];
+    waiting.replaceChildren(...note(`Bạn ở đội ${team.name}!`, `Chế độ ${mode.name}: ${mode.hint} Chỉ chạy trong khu đội mình. Chờ host bấm bắt đầu nhé.`));
   } else if (state.phase === 'finished' && state.results) {
     const rank = state.results.teams.findIndex((t) => t.id === me.team) + 1;
-    waiting.hidden = false;
     const headline = state.results.draw && rank <= 2 ? '🤝 Hòa!' : rank === 1 ? '🏆 Đội bạn thắng!' : `Đội bạn hạng ${rank}`;
-    waiting.replaceChildren(document.createTextNode(headline), Object.assign(document.createElement('small'), { textContent: `Bạn ném trúng ${me.hits} lần, bị trúng ${me.hitsTaken} lần.` }));
+    const kills = mine?.kills ?? me.kills;
+    waiting.replaceChildren(...note(headline, state.mode === 'infect'
+      ? `Bạn kéo ${kills} người về đội, ném trúng ${mine?.hits ?? me.hits} lần.`
+      : `Bạn hạ ${kills} người, ném trúng ${mine?.hits ?? me.hits} lần.`));
+  } else if (out) {
+    waiting.classList.add('spectate');
+    const watching = mine.watching ? `Đang xem ${mine.watching} chơi.` : 'Đang xem trận đấu.';
+    waiting.replaceChildren(...note(mine.late ? '⏳ Trận đang diễn ra' : '💥 Bạn bị loại!', mine.late ? `Bạn sẽ vào trận sau. ${watching}` : `${watching} Cổ vũ đồng đội nào!`));
   } else {
     waiting.hidden = true;
   }
@@ -93,19 +110,33 @@ function render() {
 
 socket.on('state', (next) => {
   state = next;
+  view.setState(next);
   render();
+});
+socket.on('view', (frame) => {
+  if (frame) view.pushFrame(frame);
 });
 socket.on('me', (me) => {
   if (!me) return;
+  const changed = mine?.dead !== me.dead || mine?.watching !== me.watching;
+  mine = me;
   $('pad').classList.toggle('stunned', me.stunnedMs > 0);
-  $('throw').style.setProperty('--cd', String(Math.min(1, me.cooldownMs / 800)));
+  $('throw').style.setProperty('--cd', String(Math.min(1, me.cooldownMs / RULES.throwCooldownMs)));
   $('power').textContent = [me.power && PICKUP_ICON[me.power], me.helmet && '⛑️', me.teaMs > 0 && '🧋'].filter(Boolean).join('');
-  $('me-stats').textContent = `🎯 ${me.hits} · 🥴 ${me.hitsTaken}`;
+  $('me-lives').textContent = me.late ? '⏳' : state?.mode === 'infect' ? '' : hearts(me.lives);
+  $('me-stats').textContent = `🎯 ${me.kills}`;
+  if (changed) render();
 });
 socket.on('me:fx', (events) => {
+  view.addEffects(events);
   for (const e of events) {
-    if (e.type === 'hit' && e.to === myId) buzz([140, 60, 140]);
+    if (e.type === 'hit' && e.to === myId) { buzz([140, 60, 140]); toast(`💔 Còn ${e.lives} mạng!`); }
+    else if (e.type === 'out' && e.to === myId) buzz([300, 80, 300]);
     else if (e.type === 'hit' && e.from === myId) { buzz(40); toast('🎯 Trúng rồi!'); }
+    else if (e.type === 'out' && e.from === myId) { buzz([60, 40, 60]); toast('💥 Hạ gục 1 người!'); }
+    else if (e.type === 'infect' && e.to === myId) { buzz([200, 60, 200]); toast(`🧟 Bạn bị lây! Giờ bạn ở đội ${TEAMS[e.team].name}`); }
+    else if (e.type === 'infect' && e.from === myId) { buzz([60, 40, 60]); toast('🧟 Kéo được 1 người về đội!'); }
+    else if (e.type === 'capture' && e.to === myId) toast('🚩 Bạn chiếm được khu mới cho đội!');
     else if (e.type === 'block' && e.to === myId) { buzz(60); toast('⛑️ Mũ đã đỡ giúp bạn!'); }
     else if (e.type === 'pickup' && e.to === myId) toast(`Nhặt được ${PICKUP_ICON[e.pickup] ?? ''} ${PICKUPS.find((p) => p.id === e.pickup)?.hint ?? ''}`);
   }
@@ -155,7 +186,7 @@ zone.addEventListener('pointerup', release);
 zone.addEventListener('pointercancel', release);
 
 const throwSlipper = () => {
-  if (!myId) return;
+  if (!myId || mine?.dead) return; // out (or waiting for the next match): nothing to throw
   socket.emit('throw');
   buzz(15);
 };

@@ -79,19 +79,21 @@ test('a full match: phones join and steer, the big screen gets frames, slippers 
   const pa = entry.room.players.get(a.playerId);
   const pb = entry.room.players.get(b.playerId);
   Object.assign(pa, { x: 300, y: 450, fx: 1, fy: 0 });
-  Object.assign(pb, { x: 650, y: 450 });
+  Object.assign(pb, { x: 850, y: 450 });
   const ouch = next(phoneB, 'me:fx', (fx) => fx.some((e) => e.type === 'hit'));
   assert.ok((await ask(phoneA, 'throw')).ok);
   await ouch;
-  assert.equal(entry.room.scores[pa.team], 1);
+  assert.equal(pb.lives, RULES.lives - 1);
   const me = await next(phoneB, 'me');
-  assert.ok(me.stunnedMs > 0, 'the victim\'s phone knows it is down');
+  assert.equal(me.lives, RULES.lives - 1, 'the victim\'s phone knows a life is gone');
 
   phoneA.emit('input', { dx: 0, dy: 1 });
   const y = pa.y;
   await sleep(300);
   assert.ok(pa.y > y + 20, 'the joystick moves the player');
   assert.equal(phoneFrames, 0, 'phones never get the 20 Hz position stream');
+  const view = await next(phoneA, 'view');
+  assert.ok(view.p.some(([id]) => id === a.playerId), 'but they see the arena around themselves');
 });
 
 test('the OBS view watches without being a host', async () => {
@@ -136,6 +138,26 @@ test('maintenance blocks new rooms; the operator API reports matches', async () 
   assert.equal((await fetch(`${base}/api/rooms`, { method: 'POST', headers: { Origin: base } })).status, 503);
   await ops('/settings', { method: 'POST', body: JSON.stringify({ maintenance: false }) });
   assert.equal((await fetch(`${base}/api/rooms`, { method: 'POST', headers: { Origin: base } })).status, 201);
+});
+
+test('past the whole-server player cap, newcomers are told to come back later', async () => {
+  const small = await startServer({ port: 0, maxPlayersTotal: 1, roomLimits: { maxRoomsPerIp: 10 } });
+  const smallBase = `http://127.0.0.1:${small.port}`;
+  try {
+    const { code } = await (await fetch(`${smallBase}/api/rooms`, { method: 'POST', headers: { Origin: smallBase } })).json();
+    const join = async (name) => {
+      const s = connect(smallBase, { transports: ['websocket'], forceNew: true, query: { room: code } });
+      sockets.push(s);
+      await new Promise((r) => s.on('connect', r));
+      return s.timeout(2000).emitWithAck('player:join', { name, animal: 'duck' });
+    };
+    assert.ok((await join('An')).ok);
+    const full = await join('Bình');
+    assert.equal(full.busy, true);
+    assert.match(full.error, /đông/);
+  } finally {
+    await small.close();
+  }
 });
 
 test('a joystick flood is capped, never crashes the room', async () => {

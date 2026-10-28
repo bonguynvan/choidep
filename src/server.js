@@ -96,6 +96,7 @@ export async function startServer({
   trustProxy = false,
   roomLimits = {},
   maxSocketsPerIp = 10,
+  maxPlayersTotal = 1200, // across all rooms: bandwidth (~70 kbit/s per phone) is the real limit
   createPerMinute = 5,
   createRoom,
   db = openDatabase(':memory:'),
@@ -160,7 +161,7 @@ export async function startServer({
   const io = new Server(httpServer, { serveClient: true, maxHttpBufferSize: 4096, allowRequest: sameOriginSocket });
   const startedAt = Date.now();
   const sockets = registerSockets(io, rooms, {
-    buildId, trustProxy, publicUrl, maxSocketsPerIp,
+    buildId, trustProxy, publicUrl, maxSocketsPerIp, maxPlayersTotal,
     onMatchStart: (players) => {
       const now = Date.now();
       stats.add('roomRaces', 1, now); // the dashboard's "races" are matches here

@@ -35,7 +35,13 @@
     <div class="pad-bar" id="pad-bar">
       <span id="me-name"></span>
       <span class="spacer"></span>
-      <span id="me-stats">🎯 0 · 🥴 0</span>
+      <span id="me-lives" aria-label="Số mạng"></span>
+      <span id="me-stats">🎯 0</span>
+    </div>
+    <div class="pad-view">
+      <canvas id="view" aria-label="Đấu trường quanh bạn"></canvas>
+      <p class="keys-hint">⌨️ <b>W A S D</b> hoặc <b>phím mũi tên</b> để chạy · <b>Space</b> để ném</p>
+      <div class="waiting" id="waiting" hidden></div>
     </div>
     <div class="pad-area">
       <div class="stick-zone" id="stick-zone">
@@ -46,7 +52,6 @@
         <button class="throw" type="button" id="throw"><span><small id="power"></small>NÉM</span></button>
       </div>
     </div>
-    <div class="waiting" id="waiting" hidden></div>
   </div>
 </body>
 </html>

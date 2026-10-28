@@ -8,6 +8,7 @@ const MAX_EVENTS_PER_SEC = 40; // a joystick sends ~15 inputs a second
 const AUTH_MAX_FAILURES = 5;
 const AUTH_LOCKOUT_MS = 60000;
 const ME_EVERY_TICKS = 5; // phones: own state 4x a second
+const VIEW_EVERY_TICKS = 2; // phones: the arena around them 10x a second
 const JOINS_PER_MINUTE = 10;
 
 const asObject = (v) => (v && typeof v === 'object' ? v : {});
@@ -58,7 +59,10 @@ export function sweepRooms(io, rooms, now) {
   return closed;
 }
 
-export function registerSockets(io, rooms, { buildId, trustProxy, publicUrl, maxSocketsPerIp, onMatchStart = () => {} }) {
+/** Everyone playing in every room right now. */
+const totalPlayers = (rooms) => [...rooms.rooms.values()].reduce((n, e) => n + e.room.players.size, 0);
+
+export function registerSockets(io, rooms, { buildId, trustProxy, publicUrl, maxSocketsPerIp, maxPlayersTotal = Infinity, onMatchStart = () => {} }) {
   const socketsPerIp = new Map();
   const authFailures = new Map(); // "ip|room" -> { count, lockedUntil }
 
@@ -127,6 +131,8 @@ export function registerSockets(io, rooms, { buildId, trustProxy, publicUrl, max
       const existing = arena.players.get(socket.data.playerId);
       if (existing) return reply({ ok: true, playerId: existing.id, token: existing.token });
       if (!joinAllowed()) return reply({ error: 'Vào ra nhiều quá, đợi một phút nhé' });
+      // Whole-server safety valve: past this, newcomers wait instead of everyone getting a laggy game.
+      if (totalPlayers(rooms) >= maxPlayersTotal) return reply({ error: 'Máy chủ đang rất đông, thử lại sau ít phút nhé', busy: true });
       const { name, animal } = asObject(data);
       const result = arena.join(name, animal);
       return reply(result.error ? result : bind(result.player));
@@ -210,6 +216,7 @@ export function registerSockets(io, rooms, { buildId, trustProxy, publicUrl, max
     hostAction('host:teams', ({ teams }) => arena.setTeams(Number(teams)));
     hostAction('host:shuffle', () => arena.shuffle());
     hostAction('host:duration', ({ seconds }) => arena.setDuration(Number(seconds)));
+    hostAction('host:mode', ({ mode }) => arena.setMode(String(mode)));
     hostAction('host:title', ({ title }) => arena.setTitle(title));
     hostAction('host:bots', ({ count }) => arena.addBots(Number(count)));
     hostAction('host:removeBots', () => arena.removeBots());
@@ -254,14 +261,25 @@ export function tickRooms(io, rooms, now, tick) {
       io.to(screenOf(entry.code)).volatile.emit('frame', arena.frame(now));
       if (events.length > 0) {
         io.to(screenOf(entry.code)).emit('fx', events);
+        // A team out / a zone taken: every phone shows the banner, and the timer may have been cut short.
+        const forAll = events.filter((e) => e.type === 'wipe' || e.type === 'capture');
+        // Someone changed team ("Lây nhiễm"): everyone's roster (colours, phone bar) needs the news.
+        if (forAll.length > 0 || events.some((e) => e.type === 'infect')) entry.dirty = true;
         const touched = new Set(events.flatMap((e) => [e.to, e.from]).filter(Boolean));
-        if (touched.size > 0) {
+        if (touched.size > 0 || forAll.length > 0) {
           socketsIn(io, entry.code).forEach((s) => {
-            if (!touched.has(s.data.playerId)) return;
-            s.emit('me:fx', events.filter((e) => e.to === s.data.playerId || e.from === s.data.playerId));
+            const id = s.data.playerId;
+            if (!id) return;
+            const mine = events.filter((e) => forAll.includes(e) || e.to === id || e.from === id);
+            if (mine.length > 0) s.emit('me:fx', mine);
           });
         }
       }
+    }
+    if (live && tick % VIEW_EVERY_TICKS === 0) {
+      socketsIn(io, entry.code).forEach((s) => {
+        if (s.data.playerId) s.volatile.emit('view', arena.viewFor(s.data.playerId, now));
+      });
     }
     if (arena.phase !== before) entry.dirty = true;
     if (tick % ME_EVERY_TICKS === 0 && (live || entry.dirty)) {

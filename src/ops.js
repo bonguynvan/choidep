@@ -2,6 +2,7 @@
 // Disabled unless OPS_TOKEN (32+ characters) is set; every call needs "Authorization: Bearer <OPS_TOKEN>".
 // The public proxy also refuses /api/ops/* (deploy/choidep.caddy): reachable only from the server itself.
 import { createHash, timingSafeEqual } from 'node:crypto';
+import { monitorEventLoopDelay } from 'node:perf_hooks';
 import express from 'express';
 
 export const OPS_TOKEN_MIN = 32;
@@ -19,6 +20,26 @@ export const isOpsToken = (token) => typeof token === 'string' && token.length >
 export function registerOps(app, { token, game, rooms, closeRoom, stats, settings, onSettings, startedAt }) {
   if (!isOpsToken(token)) return;
   const expected = digest(`Bearer ${token}`);
+  // Health under load: event-loop delay (lag = stutter for every player) and CPU since the last look.
+  const loop = monitorEventLoopDelay({ resolution: 10 });
+  loop.enable();
+  let lastCpu = process.cpuUsage();
+  let lastAt = process.hrtime.bigint();
+  const health = () => {
+    const cpu = process.cpuUsage(lastCpu);
+    const at = process.hrtime.bigint();
+    const elapsedUs = Number(at - lastAt) / 1000;
+    lastCpu = process.cpuUsage();
+    lastAt = at;
+    const result = {
+      cpuPercent: Math.round(((cpu.user + cpu.system) / Math.max(1, elapsedUs)) * 100),
+      loopLagP50Ms: Math.round(loop.percentile(50) / 1e5) / 10,
+      loopLagP99Ms: Math.round(loop.percentile(99) / 1e5) / 10,
+      loopLagMaxMs: Math.round(loop.max / 1e5) / 10,
+    };
+    loop.reset();
+    return result;
+  };
   const authorized = (req) => timingSafeEqual(digest(req.headers.authorization ?? ''), expected);
   const guard = (req, res, next) => {
     res.set('Cache-Control', 'no-store');
@@ -33,6 +54,7 @@ export function registerOps(app, { token, game, rooms, closeRoom, stats, setting
       now,
       uptimeMin: Math.round((now - startedAt) / 60000),
       memoryMb: Math.round(process.memoryUsage().rss / 1048576),
+      health: health(),
       live: {
         rooms: list.length,
         players: list.reduce((n, r) => n + r.players, 0),
