@@ -207,6 +207,13 @@ export function registerSockets(io, rooms, { buildId, trustProxy, publicUrl, max
         if (!result.error) changed();
       });
     };
+    // The host closes the room for good: everyone (phones, OBS) is told and disconnected.
+    socket.on('host:close', (data, cb) => {
+      const reply = asCallback(typeof data === 'function' ? data : cb);
+      if (!socket.data.isHost) return reply({ error: 'Chỉ host mới làm được' });
+      reply({ ok: true }); // before closing: the ack must reach the host first
+      closeRoom(io, rooms, code);
+    });
     hostAction('host:start', () => {
       const result = arena.start(Date.now());
       if (!result.error) onMatchStart(arena.players.size);

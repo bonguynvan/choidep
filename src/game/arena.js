@@ -250,7 +250,7 @@ export class Arena {
     this.nextPickupAt = this.startsAt + RULES.pickupEveryMs;
     for (const p of this.players.values()) {
       Object.assign(p, {
-        lives: RULES.lives, dead: false, late: false, watching: null, hits: 0, kills: 0, infected: 0,
+        lives: this.mode === 'infect' ? RULES.infectLives : RULES.lives, dead: false, late: false, watching: null, hits: 0, kills: 0, infected: 0,
         stunnedUntil: 0, shieldUntil: 0, cooldownUntil: 0, teaUntil: 0, helmet: false, power: null, dx: 0, dy: 0,
       });
       this.#spawn(p);
@@ -342,7 +342,10 @@ export class Arena {
     return { ok: true, kind, count: angles.length };
   }
 
-  /** One slipper lands on one enemy: the helmet takes it, else a life goes (the last one puts them out). */
+  /**
+   * One slipper lands on one enemy: the helmet takes it, else a life goes. The last one puts them out, or in
+   * "Lây nhiễm" moves them to the team of whoever landed it (the first hit only cracks their head).
+   */
   #hit(projectile, target, now, events) {
     // "Lây nhiễm": a slipper from a team that is gone (everyone turned) can't recruit anyone.
     if (this.mode === 'infect' && this.outTeams.has(projectile.team)) return;
@@ -357,11 +360,11 @@ export class Arena {
     const thrower = this.players.get(projectile.owner);
     if (thrower) thrower.hits += 1;
     const where = { from: projectile.owner, to: target.id, team: projectile.team, kind: projectile.kind, x: target.x, y: target.y };
-    if (this.mode === 'infect') {
+    target.lives -= 1;
+    if (target.lives <= 0 && this.mode === 'infect') {
       this.#infect(target, thrower, where, now, events);
       return;
     }
-    target.lives -= 1;
     if (target.lives <= 0) {
       target.dead = true;
       target.power = null;
@@ -408,7 +411,7 @@ export class Arena {
     const wobble = Math.sin(now / 700 + bot.seed) * 0.8;
     const away = best < 220 ** 2 ? -1 : 1; // keep some distance
     this.setInput(bot.id, (target.x - bot.x) * away + (target.y - bot.y) * wobble * 0.3, (target.y - bot.y) * away - (target.x - bot.x) * wobble * 0.3);
-    if (best < (RULES.throwRange * 0.8) ** 2 && this.rng() < 0.05) this.throwFrom(bot.id, now);
+    if (best < (RULES.throwRange * 0.8) ** 2 && this.rng() < 0.04) this.throwFrom(bot.id, now);
   }
 
   /**
@@ -487,6 +490,7 @@ export class Arena {
     const old = target.team;
     target.team = where.team;
     target.infected += 1;
+    target.lives = RULES.infectLives; // a fresh head on the new team
     target.power = null;
     if (thrower) thrower.kills += 1;
     this.#spawn(target, this.zones);

@@ -133,7 +133,8 @@ test('maintenance blocks new rooms; the operator API reports matches', async () 
   const overview = await (await ops('/overview')).json();
   assert.equal(overview.game.id, 'choidep');
   assert.ok(overview.daily.at(-1).roomRaces >= 1, 'matches played today');
-  assert.ok(overview.rooms.every((r) => r.mapName === 'Đấu trường' && !('hostKey' in r)));
+  assert.equal(overview.kind, 'match');
+  assert.ok(overview.rooms.every((r) => ['Né dép', 'Lây nhiễm'].includes(r.mapName) && !('hostKey' in r)));
   await ops('/settings', { method: 'POST', body: JSON.stringify({ maintenance: true }) });
   assert.equal((await fetch(`${base}/api/rooms`, { method: 'POST', headers: { Origin: base } })).status, 503);
   await ops('/settings', { method: 'POST', body: JSON.stringify({ maintenance: false }) });
@@ -170,4 +171,19 @@ test('a joystick flood is capped, never crashes the room', async () => {
   assert.ok(reply.dropped || reply.ok || reply.error, 'still answering');
   assert.ok(server.rooms.get(code));
   assert.ok(RULES.maxPlayers >= 100);
+});
+
+test('the host can close the room for good; a phone cannot', async () => {
+  const { code, hostUrl } = await createRoom();
+  const host = await client(code);
+  const phone = await client(code);
+  assert.ok((await ask(phone, 'player:join', { name: 'An', animal: 'duck' })).ok);
+  assert.ok((await ask(phone, 'host:close')).error, 'phones are not hosts');
+  assert.ok(server.rooms.get(code), 'still open');
+  assert.ok((await ask(host, 'host:auth', { key: new URL(hostUrl).searchParams.get('key') })).ok);
+  const told = next(phone, 'room:closed');
+  assert.ok((await ask(host, 'host:close')).ok);
+  await told;
+  assert.ok(!server.rooms.get(code), 'gone');
+  assert.equal((await fetch(`${base}/r/${code}`)).status, 404, 'its links stop working');
 });

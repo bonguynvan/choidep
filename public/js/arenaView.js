@@ -44,13 +44,10 @@ export class ArenaView {
     this.state = null;
     this.clockOffset = 0;
     this.last = performance.now();
+    this.failures = new Map(); // layer -> message, shown on screen so a broken browser can be reported
     const loop = (t) => {
       requestAnimationFrame(loop);
-      try {
-        this.#draw(t);
-      } catch (error) {
-        console.error('[ArenaView]', error);
-      }
+      this.#layer('frame', () => this.#draw(t));
     };
     requestAnimationFrame(loop);
   }
@@ -86,7 +83,7 @@ export class ArenaView {
     for (const e of events) {
       if (e.type === 'hit') {
         this.fx.push({ type: 'text', text: e.kind === 'balloon' ? 'ƯỚT!' : 'BỐP!', color: TEAMS[e.team]?.color ?? '#ffd23f', x: e.x, y: e.y - 70, born });
-        this.fx.push({ type: 'glyph', icon: '💔', x: e.x + 34, y: e.y - 110, born });
+        if (this.state?.mode !== 'infect') this.fx.push({ type: 'glyph', icon: '💔', x: e.x + 34, y: e.y - 110, born }); // "Lây nhiễm": the crack says it
       } else if (e.type === 'out') {
         this.fx.push({ type: 'puff', x: e.x, y: e.y - 30, born });
         this.fx.push({ type: 'text', text: 'LOẠI!', color: '#ff4d6d', big: true, x: e.x, y: e.y - 80, born });
@@ -256,7 +253,8 @@ export class ArenaView {
       ctx.ellipse(x, y, 27, 10, 0, 0, Math.PI * 2);
       ctx.fill();
       ctx.stroke();
-      if (this.state?.mode !== 'infect') this.#lives(ctx, x, y + 21, lives); // no lives in "Lây nhiễm"
+      if (this.state?.mode !== 'infect') this.#lives(ctx, x, y + 21, lives); // "Lây nhiễm": a crack instead of dots
+      else if (lives < RULES.infectLives) this.#crack(ctx, x, y);
       const items = [];
       if (flags & FLAGS.helmet) items.push('⛑️');
       if (flags & FLAGS.tea) items.push('🧋');
@@ -280,6 +278,23 @@ export class ArenaView {
   /** This match's field size (it grows with the crowd); the default before any match. */
   #field() {
     return this.state?.field ?? ARENA;
+  }
+
+  /** "Lây nhiễm": hit once, a crack over the head (whoever lands the next hit takes them). */
+  #crack(ctx, x, y) {
+    const top = y - CHAR_SIZE * 1.2;
+    const path = [[-14, 0], [-4, 9], [-10, 17], [2, 25], [-3, 34], [8, 40]];
+    ctx.lineJoin = 'round';
+    ctx.lineCap = 'round';
+    for (const [color, width] of [['#fff', 11], [INK, 5]]) {
+      ctx.strokeStyle = color;
+      ctx.lineWidth = width;
+      ctx.beginPath();
+      path.forEach(([dx, dy], i) => (i === 0 ? ctx.moveTo(x + dx, top + dy) : ctx.lineTo(x + dx, top + dy)));
+      ctx.moveTo(x - 4, top + 9);
+      ctx.lineTo(x + 7, top + 6); // a side branch
+      ctx.stroke();
+    }
   }
 
   /** Lives left as dots under the feet: full ones red, lost ones pale. */
@@ -490,7 +505,8 @@ export class ArenaView {
     ctx.strokeStyle = INK;
     ctx.lineWidth = 5;
     ctx.beginPath();
-    ctx.roundRect(w / 2 - width / 2, y - size * 0.75, width, size * 1.5, size * 0.4);
+    if (ctx.roundRect) ctx.roundRect(w / 2 - width / 2, y - size * 0.75, width, size * 1.5, size * 0.4);
+    else ctx.rect(w / 2 - width / 2, y - size * 0.75, width, size * 1.5); // older browsers: square corners
     ctx.fill();
     ctx.stroke();
     ctx.lineWidth = size * 0.12;
@@ -529,14 +545,45 @@ export class ArenaView {
       ctx.translate((w - F.width * scale) / 2, (h - F.height * scale) / 2);
       ctx.scale(scale, scale);
     }
-    this.#floor(ctx);
+    // Each layer on its own: one that fails on some browser must not blank the whole arena.
+    this.#layer('floor', () => this.#floor(ctx));
     if (pair) {
-      this.#pickups(ctx, pair, now);
-      this.#players(ctx, pair, now, dt);
-      this.#projectiles(ctx, pair, now);
+      this.#layer('pickups', () => this.#pickups(ctx, pair, now));
+      this.#layer('players', () => this.#players(ctx, pair, now, dt));
+      this.#layer('projectiles', () => this.#projectiles(ctx, pair, now));
     }
-    this.#effects(ctx, now);
+    this.#layer('effects', () => this.#effects(ctx, now));
     ctx.restore();
-    this.#overlay(ctx, w, h, now);
+    this.#layer('overlay', () => this.#overlay(ctx, w, h, now));
+    if (this.failures.size > 0) this.#failureNote(ctx, h);
+  }
+
+  /** Run one drawing layer; a throw is logged once and remembered, and the canvas state is put back. */
+  #layer(name, draw) {
+    const ctx = this.ctx;
+    ctx.save();
+    try {
+      draw();
+    } catch (error) {
+      if (!this.failures.has(name)) console.error(`[ArenaView] ${name}`, error);
+      this.failures.set(name, String(error?.message ?? error).slice(0, 120));
+    } finally {
+      ctx.restore();
+    }
+  }
+
+  /** A small line in the corner naming what failed, so the person can send us a screenshot. */
+  #failureNote(ctx, h) {
+    const text = `⚠️ Lỗi vẽ: ${[...this.failures].map(([name, message]) => `${name}: ${message}`).join(' · ')}`;
+    ctx.save();
+    ctx.setTransform(window.devicePixelRatio || 1, 0, 0, window.devicePixelRatio || 1, 0, 0);
+    ctx.font = '600 12px system-ui, sans-serif';
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'bottom';
+    ctx.fillStyle = 'rgba(29, 26, 47, 0.75)';
+    ctx.fillRect(0, h - 20, Math.min(ctx.measureText(text).width + 12, this.canvas.clientWidth), 20);
+    ctx.fillStyle = '#fff';
+    ctx.fillText(text, 6, h - 4);
+    ctx.restore();
   }
 }
