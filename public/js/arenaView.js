@@ -83,7 +83,7 @@ export class ArenaView {
     for (const e of events) {
       if (e.type === 'hit') {
         this.fx.push({ type: 'text', text: e.kind === 'balloon' ? 'ƯỚT!' : 'BỐP!', color: TEAMS[e.team]?.color ?? '#ffd23f', x: e.x, y: e.y - 70, born });
-        this.fx.push({ type: 'glyph', icon: '💔', x: e.x + 34, y: e.y - 110, born });
+        if (this.state?.mode !== 'infect') this.fx.push({ type: 'glyph', icon: '💔', x: e.x + 34, y: e.y - 110, born }); // "Lây nhiễm": the crack says it
       } else if (e.type === 'out') {
         this.fx.push({ type: 'puff', x: e.x, y: e.y - 30, born });
         this.fx.push({ type: 'text', text: 'LOẠI!', color: '#ff4d6d', big: true, x: e.x, y: e.y - 80, born });
@@ -253,7 +253,8 @@ export class ArenaView {
       ctx.ellipse(x, y, 27, 10, 0, 0, Math.PI * 2);
       ctx.fill();
       ctx.stroke();
-      if (this.state?.mode !== 'infect') this.#lives(ctx, x, y + 21, lives); // no lives in "Lây nhiễm"
+      if (this.state?.mode !== 'infect') this.#lives(ctx, x, y + 21, lives); // "Lây nhiễm": a crack instead of dots
+      else if (lives < RULES.infectLives) this.#crack(ctx, x, y);
       const items = [];
       if (flags & FLAGS.helmet) items.push('⛑️');
       if (flags & FLAGS.tea) items.push('🧋');
@@ -277,6 +278,23 @@ export class ArenaView {
   /** This match's field size (it grows with the crowd); the default before any match. */
   #field() {
     return this.state?.field ?? ARENA;
+  }
+
+  /** "Lây nhiễm": hit once, a crack over the head (whoever lands the next hit takes them). */
+  #crack(ctx, x, y) {
+    const top = y - CHAR_SIZE * 1.2;
+    const path = [[-14, 0], [-4, 9], [-10, 17], [2, 25], [-3, 34], [8, 40]];
+    ctx.lineJoin = 'round';
+    ctx.lineCap = 'round';
+    for (const [color, width] of [['#fff', 11], [INK, 5]]) {
+      ctx.strokeStyle = color;
+      ctx.lineWidth = width;
+      ctx.beginPath();
+      path.forEach(([dx, dy], i) => (i === 0 ? ctx.moveTo(x + dx, top + dy) : ctx.lineTo(x + dx, top + dy)));
+      ctx.moveTo(x - 4, top + 9);
+      ctx.lineTo(x + 7, top + 6); // a side branch
+      ctx.stroke();
+    }
   }
 
   /** Lives left as dots under the feet: full ones red, lost ones pale. */

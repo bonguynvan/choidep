@@ -10,7 +10,7 @@ const INPUT_EVERY_MS = 60;
 const STICK_RADIUS = 60; // px of drag for full speed
 const PICKUP_ICON = Object.fromEntries(PICKUPS.map((p) => [p.id, p.icon]));
 const buzz = (pattern) => navigator.vibrate?.(pattern);
-const hearts = (n) => '❤️'.repeat(Math.max(0, n)) + '🤍'.repeat(Math.max(0, RULES.lives - n));
+const hearts = (n, max = RULES.lives) => '❤️'.repeat(Math.max(0, n)) + '🤍'.repeat(Math.max(0, max - n));
 const note = (title, small) => [document.createTextNode(title), Object.assign(document.createElement('small'), { textContent: small })];
 
 let state = null;
@@ -123,14 +123,17 @@ socket.on('me', (me) => {
   $('pad').classList.toggle('stunned', me.stunnedMs > 0);
   $('throw').style.setProperty('--cd', String(Math.min(1, me.cooldownMs / RULES.throwCooldownMs)));
   $('power').textContent = [me.power && PICKUP_ICON[me.power], me.helmet && '⛑️', me.teaMs > 0 && '🧋'].filter(Boolean).join('');
-  $('me-lives').textContent = me.late ? '⏳' : state?.mode === 'infect' ? '' : hearts(me.lives);
+  $('me-lives').textContent = me.late ? '⏳' : hearts(me.lives, state?.mode === 'infect' ? RULES.infectLives : RULES.lives);
   $('me-stats').textContent = `🎯 ${me.kills}`;
   if (changed) render();
 });
 socket.on('me:fx', (events) => {
   view.addEffects(events);
   for (const e of events) {
-    if (e.type === 'hit' && e.to === myId) { buzz([140, 60, 140]); toast(`💔 Còn ${e.lives} mạng!`); }
+    if (e.type === 'hit' && e.to === myId) {
+      buzz([140, 60, 140]);
+      toast(state?.mode === 'infect' ? '💥 Nứt đầu rồi! Trúng thêm 1 lần là bị kéo sang đội kia' : `💔 Còn ${e.lives} mạng!`);
+    }
     else if (e.type === 'out' && e.to === myId) buzz([300, 80, 300]);
     else if (e.type === 'hit' && e.from === myId) { buzz(40); toast('🎯 Trúng rồi!'); }
     else if (e.type === 'out' && e.from === myId) { buzz([60, 40, 60]); toast('💥 Hạ gục 1 người!'); }

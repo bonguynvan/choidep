@@ -164,8 +164,8 @@ test('power-ups: triple slippers, a splashing balloon, a helmet that blocks, tea
   assert.notEqual(b.team, a.team);
   assert.notEqual(d.team, a.team);
   a.power = 'balloon';
-  arena.throwFrom(a.id, now + 1000);
-  const { events } = run(arena, now + 1000, 1500);
+  arena.throwFrom(a.id, now + RULES.throwCooldownMs);
+  const { events } = run(arena, now + RULES.throwCooldownMs, 2000);
   assert.ok(events.some((e) => e.type === 'splash'));
   assert.equal(events.filter((e) => e.type === 'hit').length, 2);
   // tea (the helmet has its own test below)
@@ -463,19 +463,29 @@ test('the mode is picked in the lobby only, from the known ones', () => {
   assert.ok(arena.setMode('classic').error, 'not mid-match');
 });
 
-test('Lây nhiễm: a hit turns the target to the thrower\'s team, on its ground, nobody is out', () => {
-  const { arena, players: [a, b], now } = infecting();
-  Object.assign(a, { x: 300, y: 450, fx: 1, fy: 0 });
-  Object.assign(b, { x: 900, y: 450, lives: RULES.lives });
-  assert.notEqual(a.team, b.team);
+/** In "Lây nhiễm": a throws at b (lined up, b's shield cleared) and the slipper flies; returns the events. */
+function hitOnce(arena, a, b, now) {
+  Object.assign(a, { x: 300, y: 450, fx: 1, fy: 0, cooldownUntil: 0 });
+  Object.assign(b, { x: 900, y: 450, shieldUntil: 0 });
   arena.throwFrom(a.id, now);
-  const { events } = run(arena, now, 1500);
+  return run(arena, now, 2000);
+}
+
+test('Lây nhiễm: the first hit cracks a head, the second turns the target to the thrower\'s team', () => {
+  const { arena, players: [a, b], now } = infecting();
+  assert.notEqual(a.team, b.team);
+  assert.equal(b.lives, RULES.infectLives, 'two lives in this mode');
+  const first = hitOnce(arena, a, b, now);
+  assert.deepEqual(first.events.filter((e) => e.to === b.id).map((e) => e.type), ['hit'], 'cracked, still on its team');
+  assert.equal(b.lives, RULES.infectLives - 1);
+  assert.equal(arena.frame(first.now).p.find(([id]) => id === b.id)[4], 1, 'the crack shows in the frame');
+  const { events } = hitOnce(arena, a, b, first.now);
   const turned = events.find((e) => e.type === 'infect');
   assert.ok(turned);
   assert.deepEqual([turned.from, turned.to, turned.team, turned.old], [a.id, b.id, a.team, 1 - a.team]);
   assert.equal(b.team, a.team);
   assert.equal(b.dead, false);
-  assert.equal(b.lives, RULES.lives, 'no lives lost');
+  assert.equal(b.lives, RULES.infectLives, 'a fresh head on the new team');
   assert.equal(zoneAt(b.x, b.y, 2, arena.field), a.team, 'reappears on the new team\'s ground');
   assert.equal(a.kills, 1);
   assert.deepEqual(arena.aliveCounts(), [a.team === 0 ? 3 : 1, a.team === 0 ? 1 : 3]);
@@ -485,13 +495,10 @@ test('Lây nhiễm: one colour left wins, then everyone goes back to their own t
   const { arena, players, now } = infecting();
   const [a] = players;
   const home = players.map((p) => p.team);
-  // Turn the other team one by one.
+  // Turn the other team one by one: two hits each.
   let t = now;
   for (const p of players.filter((q) => q.team !== a.team)) {
-    Object.assign(a, { x: 300, y: 450, fx: 1, fy: 0, cooldownUntil: 0 });
-    Object.assign(p, { x: 900, y: 450, shieldUntil: 0 });
-    arena.throwFrom(a.id, t);
-    ({ now: t } = run(arena, t, 1500));
+    for (let i = 0; i < RULES.infectLives; i += 1) ({ now: t } = hitOnce(arena, a, p, t));
   }
   run(arena, t, RULES.finishDelayMs + TICK);
   assert.equal(arena.phase, PHASES.FINISHED);

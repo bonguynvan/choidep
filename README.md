@@ -11,6 +11,7 @@ Miễn phí, không cần tài khoản, chơi được cả trăm người một
   (chạm ở đâu cần hiện ở đó) và nút **NÉM** tự ngắm đối thủ gần nhất phía trước.
 - Vào bằng **máy tính**: chạy bằng **W A S D / phím mũi tên**, ném bằng **Space**.
 - **Mỗi người 3 mạng** (3 chấm đỏ dưới chân). Trúng dép mất 1 mạng, khựng 0,6 giây, rồi miễn nhiễm một chút.
+  Mỗi lần ném phải chờ 1,5 giây mới ném tiếp (không có mưa dép).
   Hết mạng thì **bị loại**: điện thoại chuyển sang xem đồng đội còn đứng.
 - **Không ném trúng đồng đội**: dép đội Đỏ màu đỏ, đội Xanh màu xanh…, bay xuyên qua người cùng đội.
 - **Mỗi đội chỉ chạy trong khu của mình**, dép thì bay đâu cũng được. Sân chia đối xứng quanh tâm: 2 đội chia đôi trái/phải,
@@ -18,8 +19,8 @@ Miễn phí, không cần tài khoản, chơi được cả trăm người một
 - Từ 3 đội trở lên: đội nào bị loại hết thì khu của đội đó thành **khu trống**, đội bên cạnh nào chạy vào trước thì **chiếm** luôn.
 - **Thắng**: đội cuối cùng còn người. Hết giờ thì đội còn nhiều người hơn thắng, bằng nhau thì xét tổng số mạng còn lại.
 - Vào phòng giữa trận thì chờ trận sau.
-- **Chế độ Lây nhiễm** (host chọn trong sảnh): không ai bị loại, trúng dép thì **đổi sang đội của người ném** và hiện lại
-  trong khu đội mới. Cả sân một màu thì thắng, hết giờ thì đội đông nhất thắng. Trận sau ai về đội nấy.
+- **Chế độ Lây nhiễm** (host chọn trong sảnh): không ai bị loại. Mỗi người 2 mạng: trúng lần đầu thì **nứt đầu**,
+  ai ném trúng lần hai thì kéo bạn **về đội người đó**, hiện lại trong khu đội mới. Cả sân một màu thì thắng, hết giờ thì đội đông nhất thắng. Trận sau ai về đội nấy.
   Giải: **Thánh lây** (kéo nhiều người nhất) và **Kiên định** (chưa bị lây lần nào).
 - Đồ nhặt trên sân: 🩴 dép tổ ong (ném 3 chiếc), 🎈 bóng nước (nổ cả vùng), ⛑️ mũ bảo hiểm (đỡ 1 lần), 🧋 trà sữa (chạy nhanh).
 - Cuối trận: đội thắng, **Thánh ném** (hạ nhiều người nhất) và **Người sống sót** (còn đứng, nhiều mạng nhất).

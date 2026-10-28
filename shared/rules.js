@@ -23,13 +23,14 @@ export const RULES = Object.freeze({
   playerRadius: 20, // every character shares one hitbox, whatever its drawing
   topMargin: 90, // positions are the feet: keep room above for the character's body and head
   speed: 300, // units per second: quicker than before, so dodging works
-  throwCooldownMs: 900,
-  projectileSpeed: 540, // slow enough to see a slipper coming and step aside
-  projectileTtlMs: 1500,
+  throwCooldownMs: 1500, // a pause between two throws: no slipper rain that ends a match in seconds
+  projectileSpeed: 460, // slow enough to see a slipper coming and step aside
+  projectileTtlMs: 1750, // with the speed: about 800 units of flight
   projectileRadius: 12,
   throwRange: 760,
   aimConeDeg: 80, // auto-aim looks for enemies within this cone ahead
   lives: 3, // hit three times = out of the match
+  infectLives: 2, // "Lây nhiễm": the first hit cracks your head, whoever lands the second takes you to their team
   hitFreezeMs: 600, // a hit makes you flinch (no running, no throwing) this long
   shieldMs: 1400, // after a hit: can't be hit again straight away (counted from the hit)
   finishDelayMs: 1800, // one team left: the match ends this long after, so everyone sees the last "LOẠI!"
@@ -57,7 +58,7 @@ export const RULES = Object.freeze({
 /** Game modes the host picks in the lobby. */
 export const MODES = Object.freeze([
   { id: 'classic', name: 'Né dép', hint: `Mỗi người ${RULES.lives} mạng, hết mạng thì bị loại. Đội cuối cùng còn người thắng.` },
-  { id: 'infect', name: 'Lây nhiễm', hint: 'Trúng dép thì đổi sang đội của người ném. Cả sân một màu thì thắng.' },
+  { id: 'infect', name: 'Lây nhiễm', hint: `Mỗi người ${RULES.infectLives} mạng: trúng lần đầu thì nứt đầu, ai ném trúng lần nữa thì kéo bạn về đội người đó. Cả sân một màu thì thắng.` },
 ]);
 
 export const PICKUPS = Object.freeze([
