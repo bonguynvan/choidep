@@ -26,7 +26,11 @@
 .error { margin: 0; color: #c0392b; font-weight: 800; }
 
 /* ---------- big screen ---------- */
-.screen { height: 100vh; height: 100dvh; display: grid; grid-template-rows: auto 1fr; overflow: hidden; }
+/* A column, not a fixed 2-row grid: the announcement banner (statusBanner.js) can sit on top without
+   pushing the arena into a zero-height row. */
+.screen { height: 100vh; height: 100dvh; display: flex; flex-direction: column; overflow: hidden; }
+.screen > * { flex: none; }
+.screen > .lobby, .screen > .arena-wrap { flex: 1 1 0; min-height: 0; }
 .screen-bar { display: flex; align-items: center; gap: 14px; padding: 10px 16px; flex-wrap: wrap; }
 .screen-bar .spacer { flex: 1; }
 .scores { display: flex; gap: 10px; flex-wrap: wrap; }
@@ -73,14 +77,14 @@
 .award strong { font: 800 1.3rem var(--font-display); }
 
 /* ---------- phone controller ---------- */
-.play { min-height: 100vh; min-height: 100dvh; display: grid; }
+.play { min-height: 100vh; min-height: 100dvh; display: grid; align-content: start; } /* the banner must not stretch */
 .play-view { max-width: 520px; width: 100%; margin: 0 auto; padding: 16px; display: grid; gap: 14px; align-content: start; }
 .picker { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 8px; }
 .picker canvas { width: 100%; height: 160px; }
 .picker-name { text-align: center; font: 800 1.2rem var(--font-display); margin: 0; }
 .team-banner { color: #fff; border: var(--border); border-radius: 14px; padding: 12px; text-align: center; font: 800 1.4rem var(--font-display); box-shadow: var(--shadow-sm); }
 
-.pad { position: fixed; inset: 0; display: grid; grid-template-rows: auto 1fr auto; touch-action: none; user-select: none; -webkit-user-select: none; background: var(--cream); }
+.pad { position: fixed; inset: var(--status-h, 0px) 0 0 0; /* starts under the announcement banner */ display: grid; grid-template-rows: auto 1fr auto; touch-action: none; user-select: none; -webkit-user-select: none; background: var(--cream); }
 .pad-view { position: relative; min-height: 0; }
 .pad-view canvas { width: 100%; height: 100%; display: block; }
 .keys-hint { display: none; position: absolute; left: 50%; bottom: 10px; transform: translateX(-50%); margin: 0; padding: 6px 14px; border: var(--border); border-radius: 999px; background: var(--paper); font-weight: 700; white-space: nowrap; }

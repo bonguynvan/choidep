@@ -119,6 +119,20 @@ setInterval(() => { $('timer').textContent = timerText(state, clockOffset); }, 2
 
 $('start').addEventListener('click', startMatch);
 $('end-match').addEventListener('click', () => act('host:lobby'));
+// Close the room for good: a second click within a few seconds confirms (no browser dialog).
+const CLOSE_CONFIRM_MS = 4000;
+let closeArmedUntil = 0;
+$('close-room').addEventListener('click', () => {
+  if (Date.now() > closeArmedUntil) {
+    closeArmedUntil = Date.now() + CLOSE_CONFIRM_MS;
+    $('close-room').textContent = 'Bấm lần nữa để đóng';
+    setTimeout(() => {
+      if (Date.now() >= closeArmedUntil) $('close-room').textContent = 'Đóng phòng';
+    }, CLOSE_CONFIRM_MS);
+    return;
+  }
+  act('host:close');
+});
 $('shuffle').addEventListener('click', () => act('host:shuffle'));
 $('add-bots').addEventListener('click', () => act('host:bots', { count: 5 }));
 $('remove-bots').addEventListener('click', () => act('host:removeBots'));

@@ -172,3 +172,18 @@ test('a joystick flood is capped, never crashes the room', async () => {
   assert.ok(server.rooms.get(code));
   assert.ok(RULES.maxPlayers >= 100);
 });
+
+test('the host can close the room for good; a phone cannot', async () => {
+  const { code, hostUrl } = await createRoom();
+  const host = await client(code);
+  const phone = await client(code);
+  assert.ok((await ask(phone, 'player:join', { name: 'An', animal: 'duck' })).ok);
+  assert.ok((await ask(phone, 'host:close')).error, 'phones are not hosts');
+  assert.ok(server.rooms.get(code), 'still open');
+  assert.ok((await ask(host, 'host:auth', { key: new URL(hostUrl).searchParams.get('key') })).ok);
+  const told = next(phone, 'room:closed');
+  assert.ok((await ask(host, 'host:close')).ok);
+  await told;
+  assert.ok(!server.rooms.get(code), 'gone');
+  assert.equal((await fetch(`${base}/r/${code}`)).status, 404, 'its links stop working');
+});
