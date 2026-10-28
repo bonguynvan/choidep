@@ -150,6 +150,7 @@ export class RoomManager {
       title: e.room.title,
       phase: e.room.phase,
       mapId: e.room.mapId,
+      mode: e.room.mode,
       players: e.room.players.size,
       connections: e.connections,
       ageMin: Math.round((now - e.createdAt) / 60000),

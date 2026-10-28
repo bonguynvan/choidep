@@ -133,7 +133,8 @@ test('maintenance blocks new rooms; the operator API reports matches', async () 
   const overview = await (await ops('/overview')).json();
   assert.equal(overview.game.id, 'choidep');
   assert.ok(overview.daily.at(-1).roomRaces >= 1, 'matches played today');
-  assert.ok(overview.rooms.every((r) => r.mapName === 'Đấu trường' && !('hostKey' in r)));
+  assert.equal(overview.kind, 'match');
+  assert.ok(overview.rooms.every((r) => ['Né dép', 'Lây nhiễm'].includes(r.mapName) && !('hostKey' in r)));
   await ops('/settings', { method: 'POST', body: JSON.stringify({ maintenance: true }) });
   assert.equal((await fetch(`${base}/api/rooms`, { method: 'POST', headers: { Origin: base } })).status, 503);
   await ops('/settings', { method: 'POST', body: JSON.stringify({ maintenance: false }) });

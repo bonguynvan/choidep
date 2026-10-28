@@ -4,6 +4,7 @@
 import { createHash, timingSafeEqual } from 'node:crypto';
 import { monitorEventLoopDelay } from 'node:perf_hooks';
 import express from 'express';
+import { MODES } from '../shared/rules.js';
 
 export const OPS_TOKEN_MIN = 32;
 const STATS_DAYS = 30;
@@ -51,6 +52,7 @@ export function registerOps(app, { token, game, rooms, closeRoom, stats, setting
     const list = rooms.list(now);
     res.json({
       game,
+      kind: 'match', // the peti.vn admin labels this card in matches/players, not races
       now,
       uptimeMin: Math.round((now - startedAt) / 60000),
       memoryMb: Math.round(process.memoryUsage().rss / 1048576),
@@ -60,7 +62,7 @@ export function registerOps(app, { token, game, rooms, closeRoom, stats, setting
         players: list.reduce((n, r) => n + r.players, 0),
         connections: list.reduce((n, r) => n + r.connections, 0),
       },
-      rooms: list.map(({ ownerId: _owner, ...r }) => ({ ...r, mapName: 'Đấu trường' })),
+      rooms: list.map(({ ownerId: _owner, ...r }) => ({ ...r, mapName: MODES.find((m) => m.id === r.mode)?.name ?? 'Đấu trường' })),
       daily: stats.recent(STATS_DAYS, now),
       settings: settings.get(),
     });
